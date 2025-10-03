@@ -22,7 +22,6 @@ var __webpack_exports__ = {};
   \*********************************************/
 __webpack_require__.r(__webpack_exports__);
 const hideShortLink = () => {
-    console.log("inside hideshort link");
     const shortsLink = document.querySelector('a[title="Shorts"]');
     if (shortsLink) {
         const parentItem = shortsLink.closest("ytd-guide-entry-renderer");
@@ -45,6 +44,21 @@ observer.observe(document.body, {
     subtree: true,
 });
 hideShortLink();
+const hideShortsContainer = () => {
+    const shotsContainer = document.querySelectorAll("ytm-shorts-lockup-view-model-v2");
+    shotsContainer.forEach((shorts) => {
+        shorts.style.display = "none";
+    });
+    console.log(shotsContainer);
+};
+const shortsObserver = new MutationObserver(() => {
+    hideShortsContainer();
+});
+shortsObserver.observe(document.body, {
+    childList: true,
+    subtree: true,
+});
+hideShortsContainer();
 
 
 /******/ })()
