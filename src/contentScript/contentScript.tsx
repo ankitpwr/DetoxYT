@@ -1,82 +1,45 @@
-const hideYTShorts = () => {
-  //hiding shorts button
-  const shortsLink = document.querySelector('a[title="Shorts"]');
-  if (shortsLink) {
-    const parentItem = shortsLink.closest("ytd-guide-entry-renderer");
-    if (parentItem) {
-      (parentItem as HTMLElement).style.display = "none";
+const SELECTORS = {
+  shorts: {
+    sidebarLink: 'a[title="Shorts]',
+    shelf: "ytd-rich-shelf-renderer[is-shorts]",
+  },
+  sidebars: {
+    main: "ytd-guide-renderer",
+    mini: "ytd-mini-guide-renderer",
+    secondary: "ytd-watch-next-secondary-results-renderer",
+    topicFilters: "iron-selector",
+  },
+};
+
+const hideElement = (selector: string) => {
+  if (selector == SELECTORS.shorts.shelf) {
+    const elements = document.querySelectorAll(selector);
+    if (elements) {
+      elements.forEach((container) => {
+        if ((container as HTMLElement).style.display != "none")
+          (container as HTMLElement).style.display = "none";
+      });
+    }
+  } else {
+    const element = document.querySelector(selector) as HTMLElement;
+    if (element && element.style.display != "none") {
+      element.style.display = "none";
     }
   }
-
-  // hiding shorts container
-  const shortsContainer = document.querySelectorAll(
-    "ytd-rich-shelf-renderer[is-shorts]"
-  );
-
-  shortsContainer.forEach((container) => {
-    (container as HTMLElement).style.display = "none";
-  });
-};
-hideYTShorts();
-
-const hideSideBar = (containerName: string) => {
-  const sideBarContainer = document.querySelector(containerName);
-  const filterbar = document.querySelector("iron-selector");
-  if (filterbar) {
-    (filterbar as HTMLElement).style.display = "none";
-  }
-  if (sideBarContainer) {
-    (sideBarContainer as HTMLElement).style.display = "none";
-    return true;
-  }
-  return false;
 };
 
-const hideSecondarySideBar = () => {
-  const secondarySideBar = document.querySelector(
-    "ytd-watch-next-secondary-results-renderer"
-  );
-
-  if (secondarySideBar) {
-    (secondarySideBar as HTMLElement).style.display = "none";
-  }
+const runCleanup = () => {
+  hideElement(SELECTORS.shorts.sidebarLink);
+  hideElement(SELECTORS.shorts.shelf);
+  hideElement(SELECTORS.sidebars.main);
+  hideElement(SELECTORS.sidebars.mini);
+  hideElement(SELECTORS.sidebars.secondary);
+  hideElement(SELECTORS.sidebars.topicFilters);
 };
 
-// observe DOM
-const observer = new MutationObserver(() => {
-  hideYTShorts();
-});
-
-const SiderBarobserver = new MutationObserver(() => {
-  let hideMainSideBar = false;
-  let hideMiniSideBar = false;
-  if (hideSideBar("ytd-guide-renderer")) {
-    console.log("found sidebar");
-    hideMainSideBar = true;
-  }
-  if (hideSideBar("ytd-mini-guide-renderer")) {
-    console.log("found mini side bar");
-    hideMiniSideBar = true;
-  }
-  if (hideMainSideBar && hideMiniSideBar) {
-    console.log("closing SiderBarobserver");
-    SiderBarobserver.disconnect();
-  }
-});
-
-const sideBarInsideVideo = new MutationObserver(() => {
-  hideSecondarySideBar();
-});
-
+const observer = new MutationObserver(runCleanup);
 observer.observe(document.body, {
   childList: true,
   subtree: true,
 });
-SiderBarobserver.observe(document.body, {
-  childList: true,
-  subtree: true,
-});
-sideBarInsideVideo.observe(document.body, {
-  childList: true,
-  subtree: true,
-});
+runCleanup();
