@@ -21,6 +21,10 @@ hideYTShorts();
 
 const hideSideBar = (containerName: string) => {
   const sideBarContainer = document.querySelector(containerName);
+  const filterbar = document.querySelector("iron-selector");
+  if (filterbar) {
+    (filterbar as HTMLElement).style.display = "none";
+  }
   if (sideBarContainer) {
     (sideBarContainer as HTMLElement).style.display = "none";
     return true;
@@ -32,6 +36,7 @@ const hideSecondarySideBar = () => {
   const secondarySideBar = document.querySelector(
     "ytd-watch-next-secondary-results-renderer"
   );
+
   if (secondarySideBar) {
     (secondarySideBar as HTMLElement).style.display = "none";
   }

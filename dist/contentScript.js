@@ -39,6 +39,10 @@ const hideYTShorts = () => {
 hideYTShorts();
 const hideSideBar = (containerName) => {
     const sideBarContainer = document.querySelector(containerName);
+    const filterbar = document.querySelector("iron-selector");
+    if (filterbar) {
+        filterbar.style.display = "none";
+    }
     if (sideBarContainer) {
         sideBarContainer.style.display = "none";
         return true;
