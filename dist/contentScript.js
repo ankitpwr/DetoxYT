@@ -36,15 +36,7 @@ const hideYTShorts = () => {
         container.style.display = "none";
     });
 };
-// observe DOM
-const observer = new MutationObserver(() => {
-    hideYTShorts();
-});
 hideYTShorts();
-observer.observe(document.body, {
-    childList: true,
-    subtree: true,
-});
 const hideSideBar = (containerName) => {
     const sideBarContainer = document.querySelector(containerName);
     if (sideBarContainer) {
@@ -53,7 +45,16 @@ const hideSideBar = (containerName) => {
     }
     return false;
 };
+const hideSecondarySideBar = () => {
+    const secondarySideBar = document.querySelector("ytd-watch-next-secondary-results-renderer");
+    if (secondarySideBar) {
+        secondarySideBar.style.display = "none";
+    }
+};
 // observe DOM
+const observer = new MutationObserver(() => {
+    hideYTShorts();
+});
 const SiderBarobserver = new MutationObserver(() => {
     let hideMainSideBar = false;
     let hideMiniSideBar = false;
@@ -70,7 +71,18 @@ const SiderBarobserver = new MutationObserver(() => {
         SiderBarobserver.disconnect();
     }
 });
+const sideBarInsideVideo = new MutationObserver(() => {
+    hideSecondarySideBar();
+});
+observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+});
 SiderBarobserver.observe(document.body, {
+    childList: true,
+    subtree: true,
+});
+sideBarInsideVideo.observe(document.body, {
     childList: true,
     subtree: true,
 });

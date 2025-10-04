@@ -17,17 +17,7 @@ const hideYTShorts = () => {
     (container as HTMLElement).style.display = "none";
   });
 };
-
-// observe DOM
-const observer = new MutationObserver(() => {
-  hideYTShorts();
-});
 hideYTShorts();
-
-observer.observe(document.body, {
-  childList: true,
-  subtree: true,
-});
 
 const hideSideBar = (containerName: string) => {
   const sideBarContainer = document.querySelector(containerName);
@@ -38,7 +28,20 @@ const hideSideBar = (containerName: string) => {
   return false;
 };
 
+const hideSecondarySideBar = () => {
+  const secondarySideBar = document.querySelector(
+    "ytd-watch-next-secondary-results-renderer"
+  );
+  if (secondarySideBar) {
+    (secondarySideBar as HTMLElement).style.display = "none";
+  }
+};
+
 // observe DOM
+const observer = new MutationObserver(() => {
+  hideYTShorts();
+});
+
 const SiderBarobserver = new MutationObserver(() => {
   let hideMainSideBar = false;
   let hideMiniSideBar = false;
@@ -56,7 +59,19 @@ const SiderBarobserver = new MutationObserver(() => {
   }
 });
 
+const sideBarInsideVideo = new MutationObserver(() => {
+  hideSecondarySideBar();
+});
+
+observer.observe(document.body, {
+  childList: true,
+  subtree: true,
+});
 SiderBarobserver.observe(document.body, {
+  childList: true,
+  subtree: true,
+});
+sideBarInsideVideo.observe(document.body, {
   childList: true,
   subtree: true,
 });
