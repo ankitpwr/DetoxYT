@@ -45,11 +45,11 @@ observer.observe(document.body, {
 });
 hideShortLink();
 const hideShortsContainer = () => {
-    const shotsContainer = document.querySelectorAll("ytm-shorts-lockup-view-model-v2");
-    shotsContainer.forEach((shorts) => {
-        shorts.style.display = "none";
+    const shortsContainer = document.querySelectorAll("ytd-rich-shelf-renderer[is-shorts]");
+    console.log(shortsContainer);
+    shortsContainer.forEach((container) => {
+        container.style.display = "none";
     });
-    console.log(shotsContainer);
 };
 const shortsObserver = new MutationObserver(() => {
     hideShortsContainer();

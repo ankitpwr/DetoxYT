@@ -24,13 +24,13 @@ observer.observe(document.body, {
 hideShortLink();
 
 const hideShortsContainer = () => {
-  const shotsContainer = document.querySelectorAll(
-    "ytm-shorts-lockup-view-model-v2"
+  const shortsContainer = document.querySelectorAll(
+    "ytd-rich-shelf-renderer[is-shorts]"
   );
-  shotsContainer.forEach((shorts) => {
-    (shorts as HTMLElement).style.display = "none";
+  console.log(shortsContainer);
+  shortsContainer.forEach((container) => {
+    (container as HTMLElement).style.display = "none";
   });
-  console.log(shotsContainer);
 };
 
 const shortsObserver = new MutationObserver(() => {
