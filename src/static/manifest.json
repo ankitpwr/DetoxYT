@@ -15,7 +15,7 @@
   },
   "options_page": "options.html",
   "background": {
-    "service_work": "background.js"
+    "service_worker": "background.js"
   },
   "content_scripts": [
     {
@@ -23,5 +23,5 @@
       "js": ["contentScript.js"]
     }
   ],
-  "permissions": ["storage", "activeTab", "tabs", "scripting"]
+  "permissions": ["storage", "alarms", "activeTab", "tabs", "scripting"]
 }

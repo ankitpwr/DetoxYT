@@ -21,7 +21,6 @@ var __webpack_exports__ = {};
   !*** ./src/background/background.ts ***!
   \**************************************/
 __webpack_require__.r(__webpack_exports__);
-console.log("background script");
 
 
 /******/ })()
