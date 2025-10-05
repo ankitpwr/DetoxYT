@@ -34,11 +34,9 @@ const hideElement = (selector: string) => {
     }
   } else if (selector == SELECTORS.videos.video) {
     const element = document.querySelectorAll(selector);
-
     element.forEach((container) => {
       const title = (container as HTMLElement).innerText || "";
       if (currentTopic) {
-        console.log(`current topic is ${currentTopic}`);
         if (!title.toLowerCase().includes(currentTopic.toLowerCase())) {
           (container as HTMLElement).style.display = "none";
         }
@@ -70,14 +68,10 @@ observer.observe(document.body, {
 runCleanup();
 
 chrome.runtime.onMessage.addListener((msg, sender, sendReponse) => {
-  console.log("incomming message");
-  console.log(JSON.parse(msg));
-  console.log(sender);
-  console.log(sendReponse);
-  console.log("message end");
+  sendReponse({ status: "Topic recevied, page will reload. " });
+
   if (msg.topic && msg.topic != "") {
     currentTopic = msg.topic;
-    chrome.tabs.reload();
-    runCleanup();
   }
+  return true;
 });

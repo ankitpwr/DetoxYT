@@ -29,6 +29,7 @@ const App: React.FC<{}> = () => {
               console.log("content Script response:", response);
             }
           );
+          chrome.tabs.reload(tab.id);
         } else console.warn("no active tab found");
       });
     });

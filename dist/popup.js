@@ -1326,6 +1326,7 @@ const App = () => {
                     chrome.tabs.sendMessage(tab.id, JSON.stringify({ type: "SET_TOPIC", topic }), (response) => {
                         console.log("content Script response:", response);
                     });
+                    chrome.tabs.reload(tab.id);
                 }
                 else
                     console.warn("no active tab found");
