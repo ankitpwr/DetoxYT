@@ -21,9 +21,17 @@ var __webpack_exports__ = {};
   !*** ./src/contentScript/contentScript.tsx ***!
   \*********************************************/
 __webpack_require__.r(__webpack_exports__);
+let currentTopic = "";
+chrome.storage.sync.get(["topic"], (result) => {
+    if (result) {
+        currentTopic = result.topic;
+        console.log(currentTopic);
+        runCleanup();
+    }
+});
 const SELECTORS = {
     shorts: {
-        sidebarLink: 'a[title="Shorts]',
+        sidebarLink: 'a[title="Shorts"]',
         shelf: "ytd-rich-shelf-renderer[is-shorts]",
     },
     sidebars: {
@@ -31,6 +39,9 @@ const SELECTORS = {
         mini: "ytd-mini-guide-renderer",
         secondary: "ytd-watch-next-secondary-results-renderer",
         topicFilters: "iron-selector",
+    },
+    videos: {
+        video: "ytd-rich-item-renderer",
     },
 };
 const hideElement = (selector) => {
@@ -42,6 +53,18 @@ const hideElement = (selector) => {
                     container.style.display = "none";
             });
         }
+    }
+    else if (selector == SELECTORS.videos.video) {
+        const element = document.querySelectorAll(selector);
+        element.forEach((container) => {
+            const title = container.innerText || "";
+            if (currentTopic) {
+                console.log(`current topic is ${currentTopic}`);
+                if (!title.toLowerCase().includes(currentTopic.toLowerCase())) {
+                    container.style.display = "none";
+                }
+            }
+        });
     }
     else {
         const element = document.querySelector(selector);
@@ -57,6 +80,7 @@ const runCleanup = () => {
     hideElement(SELECTORS.sidebars.mini);
     hideElement(SELECTORS.sidebars.secondary);
     hideElement(SELECTORS.sidebars.topicFilters);
+    hideElement(SELECTORS.videos.video);
 };
 const observer = new MutationObserver(runCleanup);
 observer.observe(document.body, {
@@ -64,6 +88,18 @@ observer.observe(document.body, {
     subtree: true,
 });
 runCleanup();
+chrome.runtime.onMessage.addListener((msg, sender, sendReponse) => {
+    console.log("incomming message");
+    console.log(JSON.parse(msg));
+    console.log(sender);
+    console.log(sendReponse);
+    console.log("message end");
+    if (msg.topic && msg.topic != "") {
+        currentTopic = msg.topic;
+        chrome.tabs.reload();
+        runCleanup();
+    }
+});
 
 
 /******/ })()
