@@ -24,7 +24,7 @@ const App: React.FC<{}> = () => {
         if (tab != null && tab.id != null && typeof tab.id == "number") {
           chrome.tabs.sendMessage(
             tab.id,
-            JSON.stringify({ type: "SET_TOPIC", topic }),
+            { type: "SET_TOPIC", topic },
             (response) => {
               console.log("content Script response:", response);
             }
@@ -34,6 +34,13 @@ const App: React.FC<{}> = () => {
       });
     });
   }
+
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    console.log("in popup message is");
+    console.log(msg);
+    console.log("message arrived in popup");
+    sendResponse({ status: "yt videos arrived" });
+  });
 
   return (
     <div className=" w-[300px] h-[300px]  ">

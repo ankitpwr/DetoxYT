@@ -22,13 +22,16 @@ var __webpack_exports__ = {};
   \*********************************************/
 __webpack_require__.r(__webpack_exports__);
 let currentTopic = "";
+let totalRelatedVideosCount = 0;
+let hasFetched = false;
 chrome.storage.sync.get(["topic"], (result) => {
     if (result) {
         currentTopic = result.topic;
-        console.log(currentTopic);
+        console.log(`current topic is ${currentTopic}`);
         runCleanup();
     }
 });
+console.log("welcome to content script");
 const SELECTORS = {
     shorts: {
         sidebarLink: 'a[title="Shorts"]',
@@ -62,6 +65,8 @@ const hideElement = (selector) => {
                 if (!title.toLowerCase().includes(currentTopic.toLowerCase())) {
                     container.style.display = "none";
                 }
+                else
+                    totalRelatedVideosCount++;
             }
         });
     }
@@ -80,6 +85,22 @@ const runCleanup = () => {
     hideElement(SELECTORS.sidebars.secondary);
     hideElement(SELECTORS.sidebars.topicFilters);
     hideElement(SELECTORS.videos.video);
+    if (totalRelatedVideosCount < 5 &&
+        hasFetched == false &&
+        currentTopic != "") {
+        hasFetched = true;
+        console.log("less video");
+        console.log(`current topic is ${currentTopic}`);
+        chrome.runtime.sendMessage({ type: "FETCH_VIDEOS", topic: currentTopic }, (reponse) => {
+            if (chrome.runtime.lastError) {
+                console.log("error occured");
+                console.error(chrome.runtime.lastError.message);
+            }
+            else {
+                console.log(reponse);
+            }
+        });
+    }
 };
 const observer = new MutationObserver(runCleanup);
 observer.observe(document.body, {
@@ -88,10 +109,8 @@ observer.observe(document.body, {
 });
 runCleanup();
 chrome.runtime.onMessage.addListener((msg, sender, sendReponse) => {
+    console.log("message arrived");
     sendReponse({ status: "Topic recevied, page will reload. " });
-    if (msg.topic && msg.topic != "") {
-        currentTopic = msg.topic;
-    }
     return true;
 });
 

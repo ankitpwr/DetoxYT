@@ -17,6 +17,8 @@ export default {
     background: path.resolve("src/background/background.ts"),
     contentScript: path.resolve("src/contentScript/contentScript.tsx"),
   },
+  target: "webworker",
+
   module: {
     // process other types of files other than js files
     rules: [
@@ -67,14 +69,15 @@ export default {
     path: path.resolve("dist"),
   },
 
-  optimization: {
-    //allow chunks to share modules eg. react being imported in both popup.tsx and option.tsx
-    splitChunks: {
-      chunks: (chunk) => {
-        return chunk.name !== "contentScript";
-      },
-    },
-  },
+  // optimization: {
+  //   //allow chunks to share modules eg. react being imported in both popup.tsx and option.tsx
+
+  //   splitChunks: {
+  //     chunks: (chunk) => {
+  //       return chunk.name !== "contentScript" && chunk.name !== "background";
+  //     },
+  //   },
+  // },
 };
 
 function getHtmlPlugins(chunks) {
