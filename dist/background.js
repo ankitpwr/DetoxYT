@@ -4893,10 +4893,10 @@ var __webpack_exports__ = {};
 __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var axios__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! axios */ "./node_modules/axios/lib/axios.js");
 
-const API_KEY = "AIzaSyCiCKK-SZI3ospRQqsxnNSO9X8rWv_cP6Y";
+const API_KEY = "AIzaSyA5IJ7iDL03ryYQbUcD_4o2batkvEQJx3o";
 const BASE_URL = "https://www.googleapis.com/youtube/v3";
 console.log("welcome to background script");
-async function fetchVideos(topic) {
+async function fetchVideos(topic, tabId) {
     console.log(`api key is ${API_KEY}`);
     try {
         const response = await axios__WEBPACK_IMPORTED_MODULE_0__["default"].get(`${BASE_URL}/search`, {
@@ -4909,6 +4909,15 @@ async function fetchVideos(topic) {
             },
         });
         console.log(response.data);
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            const tab = tabs[0];
+            if (tab != null && tab.id != null && typeof tab.id == "number") {
+                chrome.tabs.sendMessage(tab.id, { videos: response.data.items }, (response) => {
+                    console.log("response received !");
+                    console.log(response);
+                });
+            }
+        });
     }
     catch (error) {
         console.log(error);
@@ -4920,10 +4929,12 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log("message is ");
     console.log(message);
+    console.log("sender is ");
+    console.log(sender);
     if (message.type == "FETCH_VIDEOS") {
+        fetchVideos(message.topic, sender.tab?.id);
     }
-    fetchVideos(message.topic);
-    sendResponse({ reply: "got your message content script" });
+    sendResponse({ reply: "got your message" });
 });
 
 })();

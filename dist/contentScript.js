@@ -91,7 +91,10 @@ const runCleanup = () => {
         hasFetched = true;
         console.log("less video");
         console.log(`current topic is ${currentTopic}`);
-        chrome.runtime.sendMessage({ type: "FETCH_VIDEOS", topic: currentTopic }, (reponse) => {
+        chrome.runtime.sendMessage({
+            type: "FETCH_VIDEOS",
+            topic: currentTopic,
+        }, (reponse) => {
             if (chrome.runtime.lastError) {
                 console.log("error occured");
                 console.error(chrome.runtime.lastError.message);
@@ -110,6 +113,9 @@ observer.observe(document.body, {
 runCleanup();
 chrome.runtime.onMessage.addListener((msg, sender, sendReponse) => {
     console.log("message arrived");
+    console.log(msg);
+    console.log("sender is");
+    console.log(sender);
     sendReponse({ status: "Topic recevied, page will reload. " });
     return true;
 });
