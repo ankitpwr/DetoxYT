@@ -141,33 +141,145 @@ chrome.runtime.onMessage.addListener((msg, sender, sendReponse) => {
   sendReponse({ status: "New message! " });
   return true;
 });
-
 function injectVideos(videos: any[]) {
   console.log("injecting vidoes");
   const grid = document.querySelector(`ytd-rich-grid-renderer #contents`);
-  console.log(grid);
-  if (!grid) return console.warn("feed container not found");
+  if (!grid) {
+    console.warn("feed container not found");
+    return;
+  }
   if (isInjecting) return;
   isInjecting = true;
+
   try {
     const existing = document.getElementById("my-extension-shelf");
     if (existing) existing.remove();
+
+    // This is the main shelf container
     const shelf = document.createElement("div");
     shelf.id = "my-extension-shelf";
-    shelf.style.padding = "12px 0";
-    shelf.style.marginBottom = "16px";
     shelf.setAttribute("data-extension-shelf", "true");
-    shelf.innerHTML = `
-    <div style="display:flex;align-items:center;gap:12px;padding:0 12px;">
-      <h2 style="margin:0;font-size:16px">Recommended for "${currentTopic}"</h2>
-      <small style="color:var(--yt-spec-text-secondary)">${videos.length} videos</small>
-    </div>
-    <div class="my-shelf-row" style="display:flex;gap:12px;overflow-x:auto;padding:12px;">
-    </div>
-  `;
+    shelf.style.width = "100%";
+    shelf.style.marginBottom = "40px";
+    shelf.style.padding = "0 20px"; // Add space below the shelf
 
-    const row = shelf.querySelector(".my-shelf-row");
+    // Embedded CSS so this component controls its own look (keeps things isolated)
+    shelf.innerHTML = `
+      <style>
+        /* GRID: force 3 columns like YouTube desktop */
+        #my-extension-shelf .my-shelf-grid-row {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr); /* 3 columns */
+          gap: 24px 20px; /* vertical gap, horizontal gap */
+          align-items: start;
+        }
+
+        /* Card */
+        #my-extension-shelf .ext-card {
+          width: 100%;
+          color: inherit;
+          text-decoration: none;
+          font-family: inherit;
+        }
+
+        /* Thumbnail container ensures exact 16:9 box */
+        #my-extension-shelf .ext-thumb {
+          width: 100%;
+          aspect-ratio: 16 / 9;
+          border-radius: 8px;
+          overflow: hidden;
+          background-color: #222;
+          position: relative;
+          display: block;
+        }
+
+        #my-extension-shelf .ext-thumb img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+
+        /* Details row - channel avatar + meta */
+        #my-extension-shelf .ext-details {
+          display: flex;
+          margin-top: 10px;
+          gap: 12px;
+        }
+
+        #my-extension-shelf .ext-avatar {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background-color: #444;
+          flex: 0 0 36px;
+          overflow: hidden;
+          display: inline-block;
+        }
+
+        #my-extension-shelf .ext-meta {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+        }
+
+        #my-extension-shelf .ext-title {
+          margin: 0;
+          padding: 0;
+          font-size: 14px;
+          font-weight: 500;
+          line-height: 1.35;
+          color: var(--yt-spec-text-primary);
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        #my-extension-shelf .ext-subline {
+          margin-top: 6px;
+          font-size: 12px;
+          color: var(--yt-spec-text-secondary);
+          line-height: 1.3;
+        }
+
+        /* Make shelf title visually similar to ytd shelves */
+        #my-extension-shelf .ext-shelf-header {
+          display:flex;
+          align-items:center;
+          gap:12px;
+          padding: 0 0 16px 0;
+        }
+        #my-extension-shelf .ext-shelf-title {
+          font-size: 1.6rem;
+          line-height: 2.2rem;
+          font-weight: 700;
+          color: var(--yt-spec-text-primary);
+          margin: 0;
+        }
+
+        /* Responsive fallback: if viewport is narrow, switch to 2 / 1 columns */
+        @media (max-width: 1200px) {
+          #my-extension-shelf .my-shelf-grid-row { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 800px) {
+          #my-extension-shelf .my-shelf-grid-row { grid-template-columns: repeat(1, 1fr); }
+        }
+      </style>
+
+      <div class="ext-shelf-header">
+        <h2 id="title" class="ext-shelf-title">
+          Recommended for "${currentTopic}"
+        </h2>
+      </div>
+
+      <div class="my-shelf-grid-row"></div>
+    `;
+
+    const row = shelf.querySelector(".my-shelf-grid-row");
     if (!row) return;
+
     videos.forEach((v) => {
       const videoId =
         v.id?.videoId ||
@@ -180,33 +292,44 @@ function injectVideos(videos: any[]) {
         v.snippet?.thumbnails?.medium?.url ||
         "";
 
-      const card = document.createElement("a");
-      card.href = `https://www.youtube.com/watch?v=${videoId}`;
-      card.target = "_blank";
-      card.rel = "noopener noreferrer";
-      card.style.minWidth = "320px";
-      card.style.textDecoration = "none";
-      card.style.color = "inherit";
-      card.style.display = "block";
+      // publishTime (if available)
+      const publishTime = (v.snippet && v.snippet.publishTime) || "";
 
+      const card = document.createElement("div");
+      card.className = "ext-card";
+
+      // Note: We include a small avatar placeholder (YouTube shows avatar next to title)
       card.innerHTML = `
-      <div style="width:100%;height:180px;overflow:hidden;border-radius:8px;background:#111">
-        <img src="${thumb}" alt="${escapeHtml(
-        title
-      )}" style="width:100%;height:100%;object-fit:cover;display:block;">
-      </div>
-      <div style="padding:8px 0;">
-        <div style="font-size:14px;line-height:1.2;max-height:2.4em;overflow:hidden">${escapeHtml(
-          title
-        )}</div>
-        <div style="font-size:12px;color:var(--yt-spec-text-secondary);margin-top:6px">${escapeHtml(
-          channel
-        )}</div>
-      </div>
-    `;
+        <a class="ext-thumb" href="https://www.youtube.com/watch?v=${videoId}" target="_blank" rel="noopener noreferrer">
+          <img src="${thumb}" alt="${escapeHtml(title)}">
+        </a>
+
+        <div class="ext-details">
+          <div class="ext-avatar" aria-hidden="true"></div>
+
+          <div class="ext-meta">
+            <h3 class="ext-title">
+              <a href="https://www.youtube.com/watch?v=${videoId}" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: none;">
+                ${escapeHtml(title)}
+              </a>
+            </h3>
+
+            <div class="ext-subline">
+              <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(
+                channel
+              )}</div>
+              <div style="margin-top:2px;">${escapeHtml(
+                formatTimeAgo(publishTime)
+              )}</div>
+            </div>
+          </div>
+        </div>
+      `;
 
       row.appendChild(card);
     });
+
+    // Inject the entire shelf at the top of the grid
     const firstChild = grid.firstElementChild;
     if (firstChild) {
       grid.insertBefore(shelf, firstChild);
@@ -217,6 +340,34 @@ function injectVideos(videos: any[]) {
     isInjecting = false;
   }
 }
+
+/* ADD THIS NEW HELPER FUNCTION TO YOUR contentScript
+ */
+function formatTimeAgo(dateString: string): string {
+  if (!dateString) return "";
+  try {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.round((now.getTime() - date.getTime()) / 1000);
+    const minutes = Math.round(seconds / 60);
+    const hours = Math.round(minutes / 60);
+    const days = Math.round(hours / 24);
+    const months = Math.round(days / 30.44); // Average days in month
+    const years = Math.round(days / 365.25);
+
+    if (seconds < 60) return "just now";
+    if (minutes < 60) return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
+    if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+    if (days < 30) return `${days} day${days > 1 ? "s" : ""} ago`;
+    if (months < 12) return `${months} month${months > 1 ? "s" : ""} ago`;
+    return `${years} year${years > 1 ? "s" : ""} ago`;
+  } catch (e) {
+    console.error("Could not format date", e);
+    return "";
+  }
+}
+
+// Keep your existing escapeHtml function
 function escapeHtml(text = "") {
   return String(text)
     .replace(/&/g, "&amp;")
