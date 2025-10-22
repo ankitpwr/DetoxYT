@@ -24,7 +24,7 @@ async function fetchVideos(topic: string, tabId: any) {
       if (tab != null && tab.id != null && typeof tab.id == "number") {
         chrome.tabs.sendMessage(
           tab.id,
-          { videos: response.data.items },
+          { type: "VIDEOS", videos: response.data.items },
           (response) => {
             console.log("response received !");
             console.log(response);
@@ -46,7 +46,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log("sender is ");
   console.log(sender);
   if (message.type == "FETCH_VIDEOS") {
-    fetchVideos(message.topic, sender.tab?.id);
+    fetchVideos(message.topic, sender.tab?.id).then(() =>
+      sendResponse({ ok: true })
+    );
+    return true;
   }
 
   sendResponse({ reply: "got your message" });
