@@ -1,16 +1,59 @@
+console.log("welcome to content script");
+
 let currentTopic = "";
 let totalRelatedVideosCount = 0;
 let hasFetched = false;
 let isInjecting = false;
 let cachedVideos: any[] | null = null;
-chrome.storage.sync.get(["topic"], (result) => {
-  if (result) {
-    currentTopic = result.topic;
-    console.log(`current topic is ${currentTopic}`);
-    runCleanup();
+let debounceTimer: any = null;
+initialize();
+
+function initialize() {
+  chrome.storage.sync
+    .get(["Videostitle", "videos", "topic"])
+    .then((result) => {
+      console.log(`result is `);
+      console.log(result);
+      if (result.topic) {
+        currentTopic = result.topic;
+      }
+      if (result.Videostitle == result.topic) {
+        cachedVideos = result.videos;
+        return result.videos;
+      }
+      runCleanup();
+    })
+    .catch((err) => console.error("Storage error:", err));
+}
+function cacheVideos(videos: any[]) {
+  chrome.storage.sync.set({ Videostitle: currentTopic, videos: videos });
+}
+
+const feedContainer =
+  document.querySelector("ytd-rich-grid-renderer") ||
+  document.querySelector("ytd-browse") ||
+  document.querySelector("ytd-two-column-browse-results-renderer") ||
+  document.querySelector("#contents") ||
+  document.body;
+
+const observer = new MutationObserver(() => runCleanup());
+if (feedContainer) {
+  observer.observe(feedContainer, { childList: true, subtree: true });
+} else {
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
+const shelfWatcher = new MutationObserver(() => {
+  if (
+    !document.getElementById("my-extension-shelf") &&
+    cachedVideos &&
+    currentTopic
+  ) {
+    console.log("self watcher");
+    injectVideos(cachedVideos);
   }
 });
-console.log("welcome to content script");
+shelfWatcher.observe(document.body, { childList: true, subtree: true });
 
 const SELECTORS = {
   shorts: {
@@ -59,6 +102,7 @@ const hideElement = (selector: string) => {
 
 const runCleanup = () => {
   console.log("clean up runs");
+  console.log(`currentTopic is ${currentTopic}`);
   if (isInjecting) {
     console.log("video injection is working");
   }
@@ -82,6 +126,7 @@ const runCleanup = () => {
       console.log("got cached videos");
       injectVideos(cachedVideos);
     } else {
+      console.log("calling background script");
       chrome.runtime.sendMessage(
         {
           type: "FETCH_VIDEOS",
@@ -100,36 +145,12 @@ const runCleanup = () => {
   }
 };
 
-const feedContainer =
-  document.querySelector("ytd-rich-grid-renderer") ||
-  document.querySelector("ytd-browse") ||
-  document.querySelector("ytd-two-column-browse-results-renderer") ||
-  document.querySelector("#contents") ||
-  document.body;
-
-const observer = new MutationObserver(() => runCleanup());
-if (feedContainer) {
-  observer.observe(feedContainer, { childList: true, subtree: true });
-} else {
-  observer.observe(document.body, { childList: true, subtree: true });
-}
-
-const shelfWatcher = new MutationObserver(() => {
-  if (
-    !document.getElementById("my-extension-shelf") &&
-    cachedVideos &&
-    currentTopic
-  ) {
-    injectVideos(cachedVideos);
-  }
-});
-shelfWatcher.observe(document.body, { childList: true, subtree: true });
-
 chrome.runtime.onMessage.addListener((msg, sender, sendReponse) => {
   console.log("message arrived");
   console.log(msg);
   if (msg.type == "VIDEOS" && msg.videos && Array.isArray(msg.videos)) {
     cachedVideos = msg.videos;
+    cacheVideos(msg.videos);
     observer.disconnect();
     injectVideos(msg.videos);
     if (feedContainer) {
