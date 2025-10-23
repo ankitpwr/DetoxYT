@@ -5,7 +5,7 @@ let totalRelatedVideosCount = 0;
 let hasFetched = false;
 let isInjecting = false;
 let cachedVideos: any[] | null = null;
-let debounceTimer: any = null;
+
 initialize();
 
 function initialize() {
@@ -166,7 +166,7 @@ function injectVideos(videos: any[]) {
   console.log("injecting vidoes");
   const grid = document.querySelector(`ytd-rich-grid-renderer #contents`);
   if (!grid) {
-    console.warn("feed container not found");
+    console.log("feed container not found");
     return;
   }
   if (isInjecting) return;
@@ -176,15 +176,13 @@ function injectVideos(videos: any[]) {
     const existing = document.getElementById("my-extension-shelf");
     if (existing) existing.remove();
 
-    // This is the main shelf container
     const shelf = document.createElement("div");
     shelf.id = "my-extension-shelf";
     shelf.setAttribute("data-extension-shelf", "true");
     shelf.style.width = "100%";
     shelf.style.marginBottom = "40px";
-    shelf.style.padding = "0 20px"; // Add space below the shelf
+    shelf.style.padding = "0 20px";
 
-    // Embedded CSS so this component controls its own look (keeps things isolated)
     shelf.innerHTML = `
       <style>
         /* GRID: force 3 columns like YouTube desktop */
@@ -313,13 +311,11 @@ function injectVideos(videos: any[]) {
         v.snippet?.thumbnails?.medium?.url ||
         "";
 
-      // publishTime (if available)
       const publishTime = (v.snippet && v.snippet.publishTime) || "";
 
       const card = document.createElement("div");
       card.className = "ext-card";
 
-      // Note: We include a small avatar placeholder (YouTube shows avatar next to title)
       card.innerHTML = `
         <a class="ext-thumb" href="https://www.youtube.com/watch?v=${videoId}" target="_blank" rel="noopener noreferrer">
           <img src="${thumb}" alt="${escapeHtml(title)}">
@@ -362,8 +358,6 @@ function injectVideos(videos: any[]) {
   }
 }
 
-/* ADD THIS NEW HELPER FUNCTION TO YOUR contentScript
- */
 function formatTimeAgo(dateString: string): string {
   if (!dateString) return "";
   try {
@@ -373,7 +367,7 @@ function formatTimeAgo(dateString: string): string {
     const minutes = Math.round(seconds / 60);
     const hours = Math.round(minutes / 60);
     const days = Math.round(hours / 24);
-    const months = Math.round(days / 30.44); // Average days in month
+    const months = Math.round(days / 30.44);
     const years = Math.round(days / 365.25);
 
     if (seconds < 60) return "just now";
@@ -388,7 +382,6 @@ function formatTimeAgo(dateString: string): string {
   }
 }
 
-// Keep your existing escapeHtml function
 function escapeHtml(text = "") {
   return String(text)
     .replace(/&/g, "&amp;")

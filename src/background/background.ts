@@ -13,7 +13,11 @@ async function fetchVideos(topic: string, tabId: any) {
         part: "snippet",
         type: "video",
         q: encodeURIComponent(topic),
-        maxResults: 5,
+        maxResults: 15,
+        order: "viewCount",
+        videoType: "any",
+        videoDuration: "long",
+        videoDefinition: "high",
         key: API_KEY,
       },
     });
