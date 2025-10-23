@@ -13,7 +13,7 @@ async function fetchVideos(topic: string, tabId: any) {
         part: "snippet",
         type: "video",
         q: encodeURIComponent(topic),
-        maxResults: 15,
+        maxResults: 12,
         order: "viewCount",
         videoType: "any",
         videoDuration: "long",

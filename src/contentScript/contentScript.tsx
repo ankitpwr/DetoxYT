@@ -8,25 +8,38 @@ let cachedVideos: any[] | null = null;
 
 initialize();
 
-function initialize() {
-  chrome.storage.sync
-    .get(["Videostitle", "videos", "topic"])
-    .then((result) => {
-      console.log(`result is `);
-      console.log(result);
-      if (result.topic) {
-        currentTopic = result.topic;
-      }
-      if (result.Videostitle == result.topic) {
-        cachedVideos = result.videos;
-        return result.videos;
-      }
-      runCleanup();
-    })
-    .catch((err) => console.error("Storage error:", err));
+async function initialize() {
+  const result = await chrome.storage.local.get(["Videostitle", "videos"]);
+  const syncResult = await chrome.storage.sync.get(["topic"]);
+  console.log("result is ");
+  console.log(result);
+  console.log("sync result is");
+  console.log(syncResult);
+  if (
+    !syncResult ||
+    !syncResult.topic ||
+    !result ||
+    !result.Videostitle ||
+    !result.videos
+  ) {
+    console.log(syncResult);
+    console.log(syncResult.topic);
+    console.log(result.Videostitle);
+    console.log(result.videos);
+    console.log("something is missing");
+    return;
+  }
+  currentTopic = syncResult.topic;
+  console.log(`videotiles are ${result.Videotitle}`);
+  console.log(`videos are`);
+  console.log(result.videos);
+  if (syncResult.topic == result.Videostitle) {
+    cachedVideos = result.videos;
+  }
 }
-function cacheVideos(videos: any[]) {
-  chrome.storage.sync.set({ Videostitle: currentTopic, videos: videos });
+async function cacheVideos(videos: any[]) {
+  console.log("cached video is called");
+  await chrome.storage.local.set({ Videostitle: currentTopic, videos: videos });
 }
 
 const feedContainer =
@@ -122,6 +135,8 @@ const runCleanup = () => {
   ) {
     hasFetched = true;
     console.log("less video so fetch the vidio");
+    console.log(`cached videos are as follows`);
+    console.log(cachedVideos);
     if (cachedVideos) {
       console.log("got cached videos");
       injectVideos(cachedVideos);
