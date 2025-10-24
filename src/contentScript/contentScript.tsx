@@ -5,16 +5,63 @@ let totalRelatedVideosCount = 0;
 let hasFetched = false;
 let isInjecting = false;
 let cachedVideos: any[] | null = null;
-
+let isInitialLoad = true;
+addLoader();
 initialize();
+
+setTimeout(() => {
+  const loader = document.getElementById("detox-Loader");
+  if (!loader) return;
+  loader.style.display = "none";
+}, 3000);
+
+function addLoader() {
+  const loader = document.createElement("div");
+  loader.id = "detox-Loader";
+  loader.style.cssText = `
+    background: black;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.3s ease-out;
+    opacity: 1;
+  `;
+
+  loader.innerHTML = `
+    <div style="text-align: center; color: white;">
+      <div style="width: 48px; height: 48px; border: 4px solid #333; border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+      <style>
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      </style>
+    </div>
+  `;
+
+  document.body.appendChild(loader);
+}
+
+function removeLoader() {
+  const loader = document.getElementById("detox-Loader");
+  if (!loader) return;
+
+  loader.style.opacity = "0";
+  setTimeout(() => {
+    loader.remove();
+    isInitialLoad = false;
+  }, 300);
+}
 
 async function initialize() {
   const result = await chrome.storage.local.get(["Videostitle", "videos"]);
   const syncResult = await chrome.storage.sync.get(["topic"]);
-  console.log("result is ");
-  console.log(result);
-  console.log("sync result is");
-  console.log(syncResult);
+
   if (
     !syncResult ||
     !syncResult.topic ||
@@ -22,11 +69,6 @@ async function initialize() {
     !result.Videostitle ||
     !result.videos
   ) {
-    console.log(syncResult);
-    console.log(syncResult.topic);
-    console.log(result.Videostitle);
-    console.log(result.videos);
-    console.log("something is missing");
     return;
   }
   currentTopic = syncResult.topic;
@@ -36,6 +78,7 @@ async function initialize() {
   if (syncResult.topic == result.Videostitle) {
     cachedVideos = result.videos;
   }
+  setTimeout(removeLoader, 1500);
 }
 async function cacheVideos(videos: any[]) {
   console.log("cached video is called");
@@ -82,6 +125,9 @@ const SELECTORS = {
   videos: {
     video: "ytd-rich-item-renderer",
   },
+  ads: {
+    topads: "ytd-ad-slot-renderer",
+  },
 };
 
 const hideElement = (selector: string) => {
@@ -105,6 +151,12 @@ const hideElement = (selector: string) => {
         } else totalRelatedVideosCount++;
       }
     });
+  } else if (selector == SELECTORS.ads.topads) {
+    const element = document.querySelector(selector);
+
+    if (element) {
+      (element as HTMLElement).style.display = "none";
+    }
   } else {
     const element = document.querySelector(selector) as HTMLElement;
     if (element && element.style.display != "none") {
@@ -114,8 +166,6 @@ const hideElement = (selector: string) => {
 };
 
 const runCleanup = () => {
-  console.log("clean up runs");
-  console.log(`currentTopic is ${currentTopic}`);
   if (isInjecting) {
     console.log("video injection is working");
   }
@@ -127,6 +177,7 @@ const runCleanup = () => {
   hideElement(SELECTORS.sidebars.secondary);
   hideElement(SELECTORS.sidebars.topicFilters);
   hideElement(SELECTORS.videos.video);
+  hideElement(SELECTORS.ads.topads);
 
   if (
     totalRelatedVideosCount < 5 &&
