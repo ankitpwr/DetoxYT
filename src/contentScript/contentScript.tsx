@@ -1,116 +1,5 @@
 console.log("welcome to content script");
 
-let currentTopic = "";
-let totalRelatedVideosCount = 0;
-let hasFetched = false;
-let isInjecting = false;
-let cachedVideos: any[] | null = null;
-let isInitialLoad = true;
-addLoader();
-initialize();
-
-setTimeout(() => {
-  const loader = document.getElementById("detox-Loader");
-  if (!loader) return;
-  loader.style.display = "none";
-}, 3000);
-
-function addLoader() {
-  const loader = document.createElement("div");
-  loader.id = "detox-Loader";
-  loader.style.cssText = `
-    background: black;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: opacity 0.3s ease-out;
-    opacity: 1;
-  `;
-
-  loader.innerHTML = `
-    <div style="text-align: center; color: white;">
-      <div style="width: 48px; height: 48px; border: 4px solid #333; border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
-      <style>
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      </style>
-    </div>
-  `;
-
-  document.body.appendChild(loader);
-}
-
-function removeLoader() {
-  const loader = document.getElementById("detox-Loader");
-  if (!loader) return;
-
-  loader.style.opacity = "0";
-  setTimeout(() => {
-    loader.remove();
-    isInitialLoad = false;
-  }, 300);
-}
-
-async function initialize() {
-  const result = await chrome.storage.local.get(["Videostitle", "videos"]);
-  const syncResult = await chrome.storage.sync.get(["topic"]);
-
-  if (
-    !syncResult ||
-    !syncResult.topic ||
-    !result ||
-    !result.Videostitle ||
-    !result.videos
-  ) {
-    return;
-  }
-  currentTopic = syncResult.topic;
-  console.log(`videotiles are ${result.Videotitle}`);
-  console.log(`videos are`);
-  console.log(result.videos);
-  if (syncResult.topic == result.Videostitle) {
-    cachedVideos = result.videos;
-  }
-  setTimeout(removeLoader, 1500);
-}
-async function cacheVideos(videos: any[]) {
-  console.log("cached video is called");
-  await chrome.storage.local.set({ Videostitle: currentTopic, videos: videos });
-}
-
-const feedContainer =
-  document.querySelector("ytd-rich-grid-renderer") ||
-  document.querySelector("ytd-browse") ||
-  document.querySelector("ytd-two-column-browse-results-renderer") ||
-  document.querySelector("#contents") ||
-  document.body;
-
-const observer = new MutationObserver(() => runCleanup());
-if (feedContainer) {
-  observer.observe(feedContainer, { childList: true, subtree: true });
-} else {
-  observer.observe(document.body, { childList: true, subtree: true });
-}
-
-const shelfWatcher = new MutationObserver(() => {
-  if (
-    !document.getElementById("my-extension-shelf") &&
-    cachedVideos &&
-    currentTopic
-  ) {
-    console.log("self watcher");
-    injectVideos(cachedVideos);
-  }
-});
-shelfWatcher.observe(document.body, { childList: true, subtree: true });
-
 const SELECTORS = {
   shorts: {
     sidebarLink: 'a[title="Shorts"]',
@@ -128,128 +17,299 @@ const SELECTORS = {
   ads: {
     topads: "ytd-ad-slot-renderer",
   },
+  feed: {
+    container: "ytd-rich-grid-renderer #contents",
+    grid: "ytd-rich-grid-renderer",
+  },
 };
 
-const hideElement = (selector: string) => {
-  if (selector == SELECTORS.shorts.shelf) {
-    const elements = document.querySelectorAll(selector);
-    if (elements) {
-      elements.forEach((container) => {
-        if ((container as HTMLElement).style.display != "none")
-          (container as HTMLElement).style.display = "none";
-      });
-    }
-  } else if (selector == SELECTORS.videos.video) {
-    const element = document.querySelectorAll(selector);
-    element.forEach((container) => {
-      const title = (container as HTMLElement).innerText || "";
-      if (currentTopic) {
-        if (!title.toLowerCase().includes(currentTopic.toLowerCase())) {
-          if ((container as Element).querySelector("[data-extension-shelf]"))
-            return;
-          (container as HTMLElement).style.display = "none";
-        } else totalRelatedVideosCount++;
+const LOADER_ID = "detox-Loader";
+const SHELF_ID = "my-extension-shelf";
+
+class YoutubeDetox {
+  private currentTopic: string = "";
+  private totalRelatedVideoCount: number = 0;
+  private hadFetched: boolean = false;
+  private isInjecting: boolean = false;
+  private cachedVideos: any[] | null = null;
+  private feedContainer: Element | null = null;
+  private domObserver: MutationObserver;
+  private shelfObserver: MutationObserver;
+
+  constructor() {
+    this.feedContainer =
+      document.querySelector(SELECTORS.feed.grid) ||
+      document.querySelector("ytd-browse") ||
+      document.querySelector("ytd-two-column-browse-results-renderer") ||
+      document.querySelector("#contents") ||
+      document.body;
+    this.domObserver = new MutationObserver(() => this.filterPageContent());
+    this.shelfObserver = new MutationObserver(() => {
+      if (
+        !document.getElementById("my-extension-shelf") &&
+        this.cachedVideos &&
+        this.currentTopic
+      ) {
+        console.log("self watcher");
+        this.injectShelf(this.cachedVideos);
       }
     });
-  } else if (selector == SELECTORS.ads.topads) {
-    const element = document.querySelector(selector);
+    this.init();
+  }
 
-    if (element) {
-      (element as HTMLElement).style.display = "none";
+  private async init() {
+    console.log("initializing the Youtube detox");
+    this.addLoader();
+    await this.loadInitialState();
+    this.setUpListner();
+    this.setUpObserver();
+    this.addShelfWatcher();
+    this.setUpListner();
+    this.filterPageContent();
+    this.hideLoader();
+  }
+
+  private async loadInitialState() {
+    console.log("initial load starting");
+    const syncResult = await chrome.storage.sync.get(["topic"]);
+    if (syncResult && syncResult.topic) {
+      this.currentTopic = syncResult.topic;
+    } else {
+      console.log("No topic found!");
     }
-  } else {
+
+    const localResult = await chrome.storage.local.get([
+      "Videostitle",
+      "videos",
+    ]);
+    if (
+      localResult &&
+      localResult.Videostitle == this.currentTopic &&
+      localResult.videos
+    ) {
+      this.cachedVideos = localResult.videos;
+    }
+  }
+
+  private setUpObserver() {
+    console.log("start observing the dom");
+    if (this.feedContainer) {
+      this.domObserver.observe(this.feedContainer, {
+        childList: true,
+        subtree: true,
+      });
+    } else {
+      this.domObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
+    }
+  }
+  private stopObserver() {
+    this.domObserver.disconnect();
+  }
+
+  private addShelfWatcher() {
+    this.shelfObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
+  }
+
+  private setUpListner() {
+    console.log("start listning for messages");
+    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+      if (msg.type === "VIDEOS" && msg.videos && Array.isArray(msg.videos)) {
+        console.log("Received videos from service worker");
+        this.cachedVideos = msg.videos;
+        this.cacheVideos(msg.videos);
+        this.stopObserver();
+        this.injectShelf(this.cachedVideos);
+        this.setUpObserver();
+      }
+      sendResponse({ status: "Message received by content script." });
+      return true;
+    });
+  }
+
+  private filterPageContent() {
+    console.log("filteration of page started");
+    if (this.isInjecting) return;
+    this.stopObserver();
+    this.hideElement(SELECTORS.shorts.sidebarLink);
+    this.hideAllElements(SELECTORS.shorts.shelf);
+    this.hideElement(SELECTORS.sidebars.main);
+    this.hideElement(SELECTORS.sidebars.mini);
+    this.hideElement(SELECTORS.sidebars.secondary);
+    this.hideElement(SELECTORS.sidebars.topicFilters);
+    this.hideElement(SELECTORS.ads.topads);
+    this.setUpObserver();
+    const relatedVideosCount = this.filterVideoElement();
+    if (relatedVideosCount < 6) {
+      console.log(`total video count are ${relatedVideosCount}`);
+      this.requestVideos();
+    }
+  }
+
+  private hideElement(selector: string) {
     const element = document.querySelector(selector) as HTMLElement;
-    if (element && element.style.display != "none") {
+    if (element && element.style.display !== "none") {
       element.style.display = "none";
     }
   }
-};
-
-const runCleanup = () => {
-  if (isInjecting) {
-    console.log("video injection is working");
+  private hideAllElements(selector: string) {
+    const elements = document.querySelectorAll<HTMLElement>(selector);
+    elements.forEach((container) => {
+      if (container.style.display !== "none") {
+        container.style.display = "none";
+      }
+    });
   }
-  totalRelatedVideosCount = 0;
-  hideElement(SELECTORS.shorts.sidebarLink);
-  hideElement(SELECTORS.shorts.shelf);
-  hideElement(SELECTORS.sidebars.main);
-  hideElement(SELECTORS.sidebars.mini);
-  hideElement(SELECTORS.sidebars.secondary);
-  hideElement(SELECTORS.sidebars.topicFilters);
-  hideElement(SELECTORS.videos.video);
-  hideElement(SELECTORS.ads.topads);
 
-  if (
-    totalRelatedVideosCount < 5 &&
-    hasFetched == false &&
-    currentTopic != ""
-  ) {
-    hasFetched = true;
-    console.log("less video so fetch the vidio");
-    console.log(`cached videos are as follows`);
-    console.log(cachedVideos);
-    if (cachedVideos) {
-      console.log("got cached videos");
-      injectVideos(cachedVideos);
-    } else {
-      console.log("calling background script");
-      chrome.runtime.sendMessage(
-        {
-          type: "FETCH_VIDEOS",
-          topic: currentTopic,
-        },
-        (reponse) => {
-          if (chrome.runtime.lastError) {
-            console.log("error occured");
-            console.error(chrome.runtime.lastError.message);
-          } else {
-            console.log(reponse);
-          }
+  private filterVideoElement() {
+    let relatedCount = 0;
+    const elements = document.querySelectorAll<HTMLElement>(
+      SELECTORS.videos.video
+    );
+    elements.forEach((container) => {
+      if (
+        container.id === SHELF_ID ||
+        container.querySelector(`[data-extension-shelf="true"]`)
+      ) {
+        return;
+      }
+
+      if (!this.currentTopic) {
+        container.style.display = "none";
+        return;
+      }
+
+      const title = container.innerText || "";
+      if (!title.toLowerCase().includes(this.currentTopic.toLowerCase())) {
+        container.style.display = "none";
+      } else {
+        container.style.display = "";
+        relatedCount++;
+      }
+    });
+    return relatedCount;
+  }
+
+  private requestVideos() {
+    console.log("called request videos");
+    console.log(this.hadFetched);
+    console.log(this.currentTopic);
+    if (!this.hadFetched && this.currentTopic) {
+      this.hadFetched = true;
+      console.log("Few related videos found. Requesting custom shelf.");
+
+      if (this.cachedVideos) {
+        console.log("Using cached videos to inject shelf.");
+        this.stopObserver();
+        this.injectShelf(this.cachedVideos);
+        this.setUpObserver();
+      } else {
+        console.log("No cached videos. Fetching from service worker.");
+        this.fetchVideos();
+      }
+    }
+  }
+
+  async cacheVideos(videos: any[]) {
+    console.log("Caching videos for topic:", this.currentTopic);
+    try {
+      await chrome.storage.local.set({
+        Videostitle: this.currentTopic,
+        videos: videos,
+      });
+    } catch (e) {
+      console.error("Error caching videos:", e);
+    }
+  }
+
+  private fetchVideos() {
+    console.log("sending message for fetching the videos");
+    chrome.runtime.sendMessage(
+      {
+        type: "FETCH_VIDEOS",
+        topic: this.currentTopic,
+      },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          console.error(
+            "Error sending FETCH_VIDEOS message:",
+            chrome.runtime.lastError.message
+          );
+
+          this.hadFetched = false;
+        } else {
+          console.log("FETCH_VIDEOS message sent, response:", response);
         }
-      );
+      }
+    );
+  }
+
+  private addLoader() {
+    console.log("adding loader");
+    if (document.getElementById(LOADER_ID)) return;
+    const loader = document.createElement("div");
+    loader.id = LOADER_ID;
+    loader.style.cssText = `
+      background: black;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.3s ease-out;
+      opacity: 1;
+    `;
+    loader.innerHTML = `
+      <div style="text-align: center; color: white;">
+        <div style="width: 48px; height: 48px; border: 4px solid #333; border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+        <style>
+          @keyframes spin { to { transform: rotate(360deg); } }
+        </style>
+      </div>
+    `;
+    document.body.appendChild(loader);
+  }
+  private hideLoader() {
+    console.log("hidding loader");
+    const loader = document.getElementById(LOADER_ID) as HTMLElement;
+    if (loader) {
+      loader.style.opacity = "0";
+      setTimeout(() => loader.remove(), 300);
     }
   }
-};
 
-chrome.runtime.onMessage.addListener((msg, sender, sendReponse) => {
-  console.log("message arrived");
-  console.log(msg);
-  if (msg.type == "VIDEOS" && msg.videos && Array.isArray(msg.videos)) {
-    cachedVideos = msg.videos;
-    cacheVideos(msg.videos);
-    observer.disconnect();
-    injectVideos(msg.videos);
-    if (feedContainer) {
-      observer.observe(feedContainer, { childList: true, subtree: true });
-    } else {
-      observer.observe(document.body, { childList: true, subtree: true });
+  private injectShelf(videos: any[] | null) {
+    if (!videos) return;
+    console.log("injecting vidoes");
+    const grid = document.querySelector(`ytd-rich-grid-renderer #contents`);
+    if (!grid) {
+      console.log("feed container not found");
+      return;
     }
-  }
-  sendReponse({ status: "New message! " });
-  return true;
-});
-function injectVideos(videos: any[]) {
-  console.log("injecting vidoes");
-  const grid = document.querySelector(`ytd-rich-grid-renderer #contents`);
-  if (!grid) {
-    console.log("feed container not found");
-    return;
-  }
-  if (isInjecting) return;
-  isInjecting = true;
+    if (this.isInjecting) return;
+    this.isInjecting = true;
 
-  try {
-    const existing = document.getElementById("my-extension-shelf");
-    if (existing) existing.remove();
+    try {
+      const existing = document.getElementById("my-extension-shelf");
+      if (existing) existing.remove();
 
-    const shelf = document.createElement("div");
-    shelf.id = "my-extension-shelf";
-    shelf.setAttribute("data-extension-shelf", "true");
-    shelf.style.width = "100%";
-    shelf.style.marginBottom = "40px";
-    shelf.style.padding = "0 20px";
+      const shelf = document.createElement("div");
+      shelf.id = "my-extension-shelf";
+      shelf.setAttribute("data-extension-shelf", "true");
+      shelf.style.width = "100%";
+      shelf.style.marginBottom = "40px";
+      shelf.style.padding = "0 20px";
 
-    shelf.innerHTML = `
+      shelf.innerHTML = `
       <style>
         /* GRID: force 3 columns like YouTube desktop */
         #my-extension-shelf .my-shelf-grid-row {
@@ -355,34 +415,34 @@ function injectVideos(videos: any[]) {
 
       <div class="ext-shelf-header">
         <h2 id="title" class="ext-shelf-title">
-          Recommended for "${currentTopic}"
+          Recommended for "${this.currentTopic}"
         </h2>
       </div>
 
       <div class="my-shelf-grid-row"></div>
     `;
 
-    const row = shelf.querySelector(".my-shelf-grid-row");
-    if (!row) return;
+      const row = shelf.querySelector(".my-shelf-grid-row");
+      if (!row) return;
 
-    videos.forEach((v) => {
-      const videoId =
-        v.id?.videoId ||
-        (v.id && v.id.kind === "youtube#video" && v.id.videoId) ||
-        "";
-      const title = (v.snippet && v.snippet.title) || "Untitled";
-      const channel = v.snippet?.channelTitle || "";
-      const thumb =
-        v.snippet?.thumbnails?.high?.url ||
-        v.snippet?.thumbnails?.medium?.url ||
-        "";
+      videos.forEach((v) => {
+        const videoId =
+          v.id?.videoId ||
+          (v.id && v.id.kind === "youtube#video" && v.id.videoId) ||
+          "";
+        const title = (v.snippet && v.snippet.title) || "Untitled";
+        const channel = v.snippet?.channelTitle || "";
+        const thumb =
+          v.snippet?.thumbnails?.high?.url ||
+          v.snippet?.thumbnails?.medium?.url ||
+          "";
 
-      const publishTime = (v.snippet && v.snippet.publishTime) || "";
+        const publishTime = (v.snippet && v.snippet.publishTime) || "";
 
-      const card = document.createElement("div");
-      card.className = "ext-card";
+        const card = document.createElement("div");
+        card.className = "ext-card";
 
-      card.innerHTML = `
+        card.innerHTML = `
         <a class="ext-thumb" href="https://www.youtube.com/watch?v=${videoId}" target="_blank" rel="noopener noreferrer">
           <img src="${thumb}" alt="${escapeHtml(title)}">
         </a>
@@ -409,20 +469,22 @@ function injectVideos(videos: any[]) {
         </div>
       `;
 
-      row.appendChild(card);
-    });
+        row.appendChild(card);
+      });
 
-    // Inject the entire shelf at the top of the grid
-    const firstChild = grid.firstElementChild;
-    if (firstChild) {
-      grid.insertBefore(shelf, firstChild);
-    } else {
-      grid.appendChild(shelf);
+      const firstChild = grid.firstElementChild;
+      if (firstChild) {
+        grid.insertBefore(shelf, firstChild);
+      } else {
+        grid.appendChild(shelf);
+      }
+    } finally {
+      this.isInjecting = false;
     }
-  } finally {
-    isInjecting = false;
   }
 }
+
+new YoutubeDetox();
 
 function formatTimeAgo(dateString: string): string {
   if (!dateString) return "";
