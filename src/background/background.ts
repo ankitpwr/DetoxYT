@@ -13,7 +13,7 @@ async function fetchVideos(topic: string, tabId: any) {
         part: "snippet",
         type: "video",
         q: encodeURIComponent(topic),
-        maxResults: 12,
+        maxResults: 24,
         order: "viewCount",
         videoType: "any",
         videoDuration: "long",
@@ -54,7 +54,64 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ ok: true })
     );
     return true;
+  } else if (message.type == "HISTORIC_VIDEOS") {
+    if (sender && sender.tab && sender.tab.id) getHistoricVideo(sender.tab.id);
+    sendResponse({ ok: "got the message" });
   }
-
   sendResponse({ reply: "got your message" });
 });
+
+async function getHistoricVideo(tabId: number) {
+  const syncResult = await chrome.storage.sync.get(["topic"]);
+  const currentTopic = syncResult.topic;
+  const historicData = await chrome.history.search({
+    text: `youtube.com/watch`,
+    startTime: Date.now() - 7 * 24 * 60 * 60 * 1000,
+    maxResults: 1000,
+  });
+
+  const filterVideo = historicData.filter((item) => {
+    const title = item.title || "";
+    return title.toLowerCase().includes(currentTopic.toLowerCase());
+  });
+  const releventVideos = filterVideo.map(async (item) => {
+    const videoId = new URL(item.url!).searchParams.get("v");
+    console.log("new item");
+    try {
+      const response = await axios.get(`${BASE_URL}/videos`, {
+        params: {
+          part: "snippet,contentDetails,statistics",
+          id: videoId,
+          key: API_KEY,
+        },
+      });
+      return response.data.items[0] ?? null;
+    } catch (err) {
+      console.warn("fetch video failed for", item.url, err);
+      return null;
+    }
+  });
+  const newData = await Promise.all(releventVideos);
+  chrome.tabs.sendMessage(
+    tabId,
+    { type: "HISTORIC_VIDEOS", videos: newData },
+    (response) => {
+      console.log("response received !");
+      console.log(response);
+    }
+  );
+  // chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+  //   console.log("tabs is ");
+  //   console.log(tabs);
+  //   const tab = tabs[0];
+  //   console.log(tab);
+  //   console.log(tab?.id);
+  //   console.log(typeof tab?.id);
+
+  //   if (tab != null && tab.id != null && typeof tab.id == "number") {
+  //     console.log("sending the data to content script");
+  //     console.log(newData);
+
+  //   }
+  // });
+}

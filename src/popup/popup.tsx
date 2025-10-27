@@ -22,13 +22,6 @@ const App: React.FC<{}> = () => {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const tab = tabs[0];
         if (tab != null && tab.id != null && typeof tab.id == "number") {
-          chrome.tabs.sendMessage(
-            tab.id,
-            { type: "SET_TOPIC", topic },
-            (response) => {
-              console.log("content Script response:", response);
-            }
-          );
           chrome.tabs.reload(tab.id);
         } else console.warn("no active tab found");
       });

@@ -50,7 +50,6 @@ class YoutubeDetox {
         this.cachedVideos &&
         this.currentTopic
       ) {
-        console.log("self watcher");
         this.injectShelf(this.cachedVideos);
       }
     });
@@ -61,10 +60,10 @@ class YoutubeDetox {
     console.log("initializing the Youtube detox");
     this.addLoader();
     await this.loadInitialState();
-    this.setUpListner();
     this.setUpObserver();
     this.addShelfWatcher();
     this.setUpListner();
+    this.getHistoricVideos();
     this.filterPageContent();
     this.hideLoader();
   }
@@ -90,9 +89,15 @@ class YoutubeDetox {
       this.cachedVideos = localResult.videos;
     }
   }
+  private getHistoricVideos() {
+    // console.log("get Historic videos");
+    // chrome.runtime.sendMessage({ type: "HISTORIC_VIDEOS" }, (response) => {
+    //   console.log("historic message response is");
+    //   console.log(response);
+    // });
+  }
 
   private setUpObserver() {
-    console.log("start observing the dom");
     if (this.feedContainer) {
       this.domObserver.observe(this.feedContainer, {
         childList: true,
@@ -119,6 +124,8 @@ class YoutubeDetox {
   private setUpListner() {
     console.log("start listning for messages");
     chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+      console.log("new message arrived");
+      console.log(msg);
       if (msg.type === "VIDEOS" && msg.videos && Array.isArray(msg.videos)) {
         console.log("Received videos from service worker");
         this.cachedVideos = msg.videos;
@@ -126,6 +133,11 @@ class YoutubeDetox {
         this.stopObserver();
         this.injectShelf(this.cachedVideos);
         this.setUpObserver();
+      } else if (
+        msg.type === "HISTORIC_VIDEOS" &&
+        msg.videos &&
+        Array.isArray(msg.videos)
+      ) {
       }
       sendResponse({ status: "Message received by content script." });
       return true;
@@ -133,7 +145,6 @@ class YoutubeDetox {
   }
 
   private filterPageContent() {
-    console.log("filteration of page started");
     if (this.isInjecting) return;
     this.stopObserver();
     this.hideElement(SELECTORS.shorts.sidebarLink);
@@ -146,7 +157,6 @@ class YoutubeDetox {
     this.setUpObserver();
     const relatedVideosCount = this.filterVideoElement();
     if (relatedVideosCount < 6) {
-      console.log(`total video count are ${relatedVideosCount}`);
       this.requestVideos();
     }
   }
@@ -196,15 +206,11 @@ class YoutubeDetox {
   }
 
   private requestVideos() {
-    console.log("called request videos");
-    console.log(this.hadFetched);
-    console.log(this.currentTopic);
     if (!this.hadFetched && this.currentTopic) {
       this.hadFetched = true;
       console.log("Few related videos found. Requesting custom shelf.");
 
       if (this.cachedVideos) {
-        console.log("Using cached videos to inject shelf.");
         this.stopObserver();
         this.injectShelf(this.cachedVideos);
         this.setUpObserver();
@@ -288,8 +294,10 @@ class YoutubeDetox {
   }
 
   private injectShelf(videos: any[] | null) {
+    console.log("inside injectShelf");
+    console.log(videos);
     if (!videos) return;
-    console.log("injecting vidoes");
+
     const grid = document.querySelector(`ytd-rich-grid-renderer #contents`);
     if (!grid) {
       console.log("feed container not found");
@@ -426,11 +434,16 @@ class YoutubeDetox {
       if (!row) return;
 
       videos.forEach((v) => {
+        console.log("video is ");
+
         const videoId =
           v.id?.videoId ||
           (v.id && v.id.kind === "youtube#video" && v.id.videoId) ||
           "";
-        const title = (v.snippet && v.snippet.title) || "Untitled";
+        let title = (v.snippet && v.snippet.title) || "Untitled";
+        if (videoId == "" && v.snippet && v.snippet.title) {
+          title = `${v.snippet.title} (from watch history)`;
+        }
         const channel = v.snippet?.channelTitle || "";
         const thumb =
           v.snippet?.thumbnails?.high?.url ||
@@ -471,6 +484,8 @@ class YoutubeDetox {
 
         row.appendChild(card);
       });
+      console.log("row is");
+      console.log(row);
 
       const firstChild = grid.firstElementChild;
       if (firstChild) {
