@@ -32,6 +32,7 @@ class YoutubeDetox {
   private hadFetched: boolean = false;
   private isInjecting: boolean = false;
   private cachedVideos: any[] | null = null;
+  private watchedVideos: any[] | null = null;
   private feedContainer: Element | null = null;
   private domObserver: MutationObserver;
   private shelfObserver: MutationObserver;
@@ -50,7 +51,11 @@ class YoutubeDetox {
         this.cachedVideos &&
         this.currentTopic
       ) {
-        this.injectShelf(this.cachedVideos);
+        const mergedVideos = this.mergeVideos(
+          this.cachedVideos || [],
+          this.watchedVideos || []
+        );
+        this.injectShelf(mergedVideos);
       }
     });
     this.init();
@@ -60,10 +65,11 @@ class YoutubeDetox {
     console.log("initializing the Youtube detox");
     this.addLoader();
     await this.loadInitialState();
-    this.setUpObserver();
-    this.addShelfWatcher();
+    await this.getHistoricVideos();
+
     this.setUpListner();
-    this.getHistoricVideos();
+    this.addShelfWatcher();
+    this.setUpObserver();
     this.filterPageContent();
     this.hideLoader();
   }
@@ -71,6 +77,8 @@ class YoutubeDetox {
   private async loadInitialState() {
     console.log("initial load starting");
     const syncResult = await chrome.storage.sync.get(["topic"]);
+    console.log(`sync result are `);
+    console.log(syncResult);
     if (syncResult && syncResult.topic) {
       this.currentTopic = syncResult.topic;
     } else {
@@ -80,6 +88,7 @@ class YoutubeDetox {
     const localResult = await chrome.storage.local.get([
       "Videostitle",
       "videos",
+      "WatchedVideos",
     ]);
     if (
       localResult &&
@@ -89,12 +98,23 @@ class YoutubeDetox {
       this.cachedVideos = localResult.videos;
     }
   }
-  private getHistoricVideos() {
-    // console.log("get Historic videos");
-    // chrome.runtime.sendMessage({ type: "HISTORIC_VIDEOS" }, (response) => {
-    //   console.log("historic message response is");
-    //   console.log(response);
-    // });
+  private async getHistoricVideos() {
+    console.log("get Historic videos");
+    const localResult = await chrome.storage.local.get([
+      "WatchedVideos",
+      "Videostitle",
+    ]);
+    if (
+      localResult.WatchedVideos &&
+      localResult.Videostitle == this.currentTopic
+    ) {
+      this.watchedVideos = localResult.WatchedVideos;
+    } else {
+      chrome.runtime.sendMessage({ type: "HISTORIC_VIDEOS" }, (response) => {
+        console.log("historic message response is");
+        console.log(response);
+      });
+    }
   }
 
   private setUpObserver() {
@@ -127,7 +147,8 @@ class YoutubeDetox {
       console.log("new message arrived");
       console.log(msg);
       if (msg.type === "VIDEOS" && msg.videos && Array.isArray(msg.videos)) {
-        console.log("Received videos from service worker");
+        console.log("fetched videos are");
+        console.log(msg.videos);
         this.cachedVideos = msg.videos;
         this.cacheVideos(msg.videos);
         this.stopObserver();
@@ -138,14 +159,38 @@ class YoutubeDetox {
         msg.videos &&
         Array.isArray(msg.videos)
       ) {
+        this.watchedVideos = msg.videos;
+        this.cacheWatchedVideos(msg.videos);
+        //do something//
       }
       sendResponse({ status: "Message received by content script." });
       return true;
     });
   }
 
+  async cacheVideos(videos: any[]) {
+    console.log("Caching videos for topic:", this.currentTopic);
+    try {
+      await chrome.storage.local.set({
+        Videostitle: this.currentTopic,
+        videos: videos,
+      });
+    } catch (e) {
+      console.error("Error caching videos:", e);
+    }
+  }
+  async cacheWatchedVideos(videos: any[]) {
+    try {
+      await chrome.storage.local.set({
+        Videostitle: this.currentTopic,
+        WatchedVideos: videos,
+      });
+    } catch (error) {
+      console.log("not able to cache the watched videos");
+    }
+  }
+
   private filterPageContent() {
-    if (this.isInjecting) return;
     this.stopObserver();
     this.hideElement(SELECTORS.shorts.sidebarLink);
     this.hideAllElements(SELECTORS.shorts.shelf);
@@ -159,6 +204,49 @@ class YoutubeDetox {
     if (relatedVideosCount < 6) {
       this.requestVideos();
     }
+  }
+
+  private getVideoId(v: any): string | null {
+    if (!v) return null;
+    if (v.id) {
+      if (typeof v.id === "string") return v.id;
+      if (v.id.videoId) return v.id.videoId;
+      if (v.id.kind && v.id.kind === "youtube#video" && v.id.videoId)
+        return v.id.videoId;
+    }
+    if (v.videoId) return v.videoId;
+    if (v.snippet?.resourceId?.videoId) return v.snippet.resourceId.videoId;
+
+    if (v.url) {
+      try {
+        return new URL(v.url).searchParams.get("v") || null;
+      } catch (e) {}
+    }
+    return null;
+  }
+
+  private mergeVideos(fetchedVideos: any[], watchedVideos: any[]) {
+    console.log("in merge videos");
+    console.log("cached videos are");
+    console.log(this.cachedVideos);
+    console.log("watched videos are");
+    console.log(this.watchedVideos);
+    const map = new Map<string, any>();
+    const pushToMap = (item: any) => {
+      const id = this.getVideoId(item);
+      if (!id) {
+        console.log("no id found for video item");
+        console.log(item);
+        return;
+      }
+      if (!map.has(id)) map.set(id, item);
+    };
+
+    fetchedVideos.forEach((item) => pushToMap(item));
+    watchedVideos.forEach((item) => pushToMap(item));
+    console.log(`map is`);
+    console.log(map);
+    return Array.from(map.values());
   }
 
   private hideElement(selector: string) {
@@ -218,18 +306,6 @@ class YoutubeDetox {
         console.log("No cached videos. Fetching from service worker.");
         this.fetchVideos();
       }
-    }
-  }
-
-  async cacheVideos(videos: any[]) {
-    console.log("Caching videos for topic:", this.currentTopic);
-    try {
-      await chrome.storage.local.set({
-        Videostitle: this.currentTopic,
-        videos: videos,
-      });
-    } catch (e) {
-      console.error("Error caching videos:", e);
     }
   }
 
@@ -294,17 +370,18 @@ class YoutubeDetox {
   }
 
   private injectShelf(videos: any[] | null) {
-    console.log("inside injectShelf");
-    console.log(videos);
+    // if (this.isInjecting) return;
+    // this.isInjecting = true;
+
     if (!videos) return;
+    console.log("vidoes are");
+    console.log(videos);
 
     const grid = document.querySelector(`ytd-rich-grid-renderer #contents`);
     if (!grid) {
       console.log("feed container not found");
       return;
     }
-    if (this.isInjecting) return;
-    this.isInjecting = true;
 
     try {
       const existing = document.getElementById("my-extension-shelf");
@@ -434,12 +511,7 @@ class YoutubeDetox {
       if (!row) return;
 
       videos.forEach((v) => {
-        console.log("video is ");
-
-        const videoId =
-          v.id?.videoId ||
-          (v.id && v.id.kind === "youtube#video" && v.id.videoId) ||
-          "";
+        const videoId = this.getVideoId(v);
         let title = (v.snippet && v.snippet.title) || "Untitled";
         if (videoId == "" && v.snippet && v.snippet.title) {
           title = `${v.snippet.title} (from watch history)`;
@@ -484,8 +556,6 @@ class YoutubeDetox {
 
         row.appendChild(card);
       });
-      console.log("row is");
-      console.log(row);
 
       const firstChild = grid.firstElementChild;
       if (firstChild) {

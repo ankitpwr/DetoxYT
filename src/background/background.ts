@@ -21,6 +21,7 @@ async function fetchVideos(topic: string, tabId: any) {
         key: API_KEY,
       },
     });
+    console.log("fetched videos are");
     console.log(response.data);
 
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -63,6 +64,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 async function getHistoricVideo(tabId: number) {
   const syncResult = await chrome.storage.sync.get(["topic"]);
+  console.log(`sync Result are`);
+  console.log(syncResult);
   const currentTopic = syncResult.topic;
   const historicData = await chrome.history.search({
     text: `youtube.com/watch`,
@@ -72,6 +75,8 @@ async function getHistoricVideo(tabId: number) {
 
   const filterVideo = historicData.filter((item) => {
     const title = item.title || "";
+    console.log("title is ", title);
+
     return title.toLowerCase().includes(currentTopic.toLowerCase());
   });
   const releventVideos = filterVideo.map(async (item) => {
