@@ -54,6 +54,23 @@ export default {
           from: path.resolve("src/static"),
           to: path.resolve("dist"),
         },
+        {
+          from: path.resolve(
+            __dirname,
+            "node_modules/@xenova/transformers/dist"
+          ),
+          to: "lib/transformers",
+        },
+        // onnxruntime wasm(s)
+        {
+          from: path.resolve(__dirname, "node_modules/onnxruntime-web/dist"),
+          to: "lib/onnxruntime",
+        },
+        // if you later add models to src/models, copy them too:
+        {
+          from: path.resolve(__dirname, "src/models"),
+          to: "models",
+        },
       ],
     }),
 

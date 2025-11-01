@@ -1,0 +1,4 @@
+{
+  "tokenizer_class": "BertTokenizer",
+  "do_lower_case": true
+}

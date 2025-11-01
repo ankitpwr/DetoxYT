@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import ReactDOM from "react-dom/client";
 import "../style.css";
+
 const App: React.FC<{}> = () => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [storedTopic, setStoredTopic] = React.useState<string>("");

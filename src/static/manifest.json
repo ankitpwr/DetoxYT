@@ -31,5 +31,15 @@
     "tabs",
     "scripting",
     "history"
-  ]
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["models/**", "lib/**", "onnxruntime/*", "ort-wasm-*.wasm"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+  },
+  "host_permissions": ["https://huggingface.co/*", "https://cdn.jsdelivr.net/*"]
 }

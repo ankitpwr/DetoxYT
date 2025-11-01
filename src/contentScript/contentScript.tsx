@@ -151,9 +151,6 @@ class YoutubeDetox {
         console.log(msg.videos);
         this.cachedVideos = msg.videos;
         this.cacheVideos(msg.videos);
-        this.stopObserver();
-        this.injectShelf(this.cachedVideos);
-        this.setUpObserver();
       } else if (
         msg.type === "HISTORIC_VIDEOS" &&
         msg.videos &&
@@ -161,8 +158,14 @@ class YoutubeDetox {
       ) {
         this.watchedVideos = msg.videos;
         this.cacheWatchedVideos(msg.videos);
-        //do something//
       }
+      const mergedvideos = this.mergeVideos(
+        this.cachedVideos || [],
+        this.watchedVideos || []
+      );
+      this.stopObserver();
+      this.injectShelf(mergedvideos);
+      this.setUpObserver();
       sendResponse({ status: "Message received by content script." });
       return true;
     });
@@ -242,8 +245,8 @@ class YoutubeDetox {
       if (!map.has(id)) map.set(id, item);
     };
 
-    fetchedVideos.forEach((item) => pushToMap(item));
     watchedVideos.forEach((item) => pushToMap(item));
+    fetchedVideos.forEach((item) => pushToMap(item));
     console.log(`map is`);
     console.log(map);
     return Array.from(map.values());
@@ -269,6 +272,7 @@ class YoutubeDetox {
     const elements = document.querySelectorAll<HTMLElement>(
       SELECTORS.videos.video
     );
+    let VideoData: any[] = [];
     elements.forEach((container) => {
       if (
         container.id === SHELF_ID ||
@@ -281,14 +285,14 @@ class YoutubeDetox {
         container.style.display = "none";
         return;
       }
-
+      console.log(container);
       const title = container.innerText || "";
-      if (!title.toLowerCase().includes(this.currentTopic.toLowerCase())) {
-        container.style.display = "none";
-      } else {
-        container.style.display = "";
-        relatedCount++;
-      }
+      VideoData.push({ title: title, element: container as HTMLElement });
+    });
+    chrome.runtime.sendMessage({
+      type: "FILTER",
+      videos: VideoData,
+      topic: this.currentTopic,
     });
     return relatedCount;
   }
@@ -300,7 +304,9 @@ class YoutubeDetox {
 
       if (this.cachedVideos) {
         this.stopObserver();
-        this.injectShelf(this.cachedVideos);
+        this.injectShelf(
+          this.mergeVideos(this.cachedVideos || [], this.watchedVideos || [])
+        );
         this.setUpObserver();
       } else {
         console.log("No cached videos. Fetching from service worker.");
@@ -569,7 +575,9 @@ class YoutubeDetox {
   }
 }
 
-new YoutubeDetox();
+setTimeout(() => {
+  new YoutubeDetox();
+}, 5000);
 
 function formatTimeAgo(dateString: string): string {
   if (!dateString) return "";
