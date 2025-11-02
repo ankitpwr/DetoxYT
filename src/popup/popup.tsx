@@ -17,15 +17,15 @@ const App: React.FC<{}> = () => {
     });
   }, []);
 
-  function handleClick() {
+  async function handleClick() {
     const topic = inputRef.current?.value?.trim() ?? "";
-    chrome.storage.sync.set({ topic }, () => {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const tab = tabs[0];
-        if (tab != null && tab.id != null && typeof tab.id == "number") {
-          chrome.tabs.reload(tab.id);
-        } else console.warn("no active tab found");
-      });
+    await chrome.storage.sync.set({ topic });
+    await chrome.runtime.sendMessage({ type: "Related_Topic", topic: topic });
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs[0];
+      if (tab != null && tab.id != null && typeof tab.id == "number") {
+        chrome.tabs.reload(tab.id);
+      } else console.warn("no active tab found");
     });
   }
 

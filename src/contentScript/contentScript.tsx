@@ -36,6 +36,7 @@ class YoutubeDetox {
   private feedContainer: Element | null = null;
   private domObserver: MutationObserver;
   private shelfObserver: MutationObserver;
+  private relatedTopic: any[] = [];
 
   constructor() {
     this.feedContainer =
@@ -89,6 +90,7 @@ class YoutubeDetox {
       "Videostitle",
       "videos",
       "WatchedVideos",
+      "relatedTopic",
     ]);
     if (
       localResult &&
@@ -96,6 +98,10 @@ class YoutubeDetox {
       localResult.videos
     ) {
       this.cachedVideos = localResult.videos;
+    }
+
+    if (localResult.relatedTopic) {
+      this.relatedTopic = localResult.relatedTopic;
     }
   }
   private async getHistoricVideos() {
@@ -272,7 +278,7 @@ class YoutubeDetox {
     const elements = document.querySelectorAll<HTMLElement>(
       SELECTORS.videos.video
     );
-    let VideoData: any[] = [];
+
     elements.forEach((container) => {
       if (
         container.id === SHELF_ID ||
@@ -285,15 +291,24 @@ class YoutubeDetox {
         container.style.display = "none";
         return;
       }
-      console.log(container);
+
       const title = container.innerText || "";
-      VideoData.push({ title: title, element: container as HTMLElement });
+      let found = false;
+      for (let i = 0; i < this.relatedTopic.length; i++) {
+        if (title.toLowerCase().includes(this.relatedTopic[i].toLowerCase())) {
+          found = true;
+          console.log(`title is ${title} and topic is ${this.relatedTopic[i]}`);
+          break;
+        }
+      }
+      if (found) {
+      } else if (
+        !title.toLowerCase().includes(this.currentTopic.toLowerCase())
+      ) {
+        container.style.display = "none";
+      }
     });
-    chrome.runtime.sendMessage({
-      type: "FILTER",
-      videos: VideoData,
-      topic: this.currentTopic,
-    });
+
     return relatedCount;
   }
 
@@ -575,9 +590,7 @@ class YoutubeDetox {
   }
 }
 
-setTimeout(() => {
-  new YoutubeDetox();
-}, 5000);
+new YoutubeDetox();
 
 function formatTimeAgo(dateString: string): string {
   if (!dateString) return "";

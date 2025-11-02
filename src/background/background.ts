@@ -1,35 +1,8 @@
 import axios from "axios";
 const API_KEY = process.env.YT_API_KEY2;
 const BASE_URL = "https://www.googleapis.com/youtube/v3";
-///--------------------------------------------
-console.log("welcome to background script");
-async function query(data: any) {
-  const response = await axios.post(
-    "https://router.huggingface.co/v1/chat/completions",
-    data,
-    {
-      headers: {
-        Authorization: `Bearer ${process.env.HF_TOKEN}`,
-      },
-    }
-  );
-  console.log("data is ");
-  const responseData = response.data.choices[0].message.content;
-  console.log(responseData);
-  const arr = responseData.split(",");
-  console.log(arr);
-}
 
-query({
-  messages: [
-    {
-      role: "user",
-      content:
-        "Generate 15 related keywords/concepts for: nodejs Include:- Prioritize keywords a developer would use when researching this topic, consider topic which might comes before and after learning this topic, technical concepts and terminology, Related technologies and tools, names/synonyms. Format: Return only comma-separated keywords, no explanations. Example for Kubernetes: devops, container orchestration, docker, k8s, ConfigMaps and Secrets, Cluster Architecture, helm Charts, docker swarm, AWS ECS, K3s, Nomad",
-    },
-  ],
-  model: "openai/gpt-oss-20b:groq",
-});
+console.log("welcome to background script");
 
 async function fetchVideos(topic: string, tabId: any) {
   console.log(`api key is ${API_KEY}`);
@@ -81,11 +54,42 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     );
     return true;
   } else if (message.type == "HISTORIC_VIDEOS") {
+    console.log("historic video message");
     if (sender && sender.tab && sender.tab.id) getHistoricVideo(sender.tab.id);
     sendResponse({ ok: "got the message" });
+  } else if ((message.type = "Related_Topic")) {
+    const topic = message.topic;
+    if (!topic) return;
+    getRelatedTopic({
+      messages: [
+        {
+          role: "user",
+          content: `Generate 15 related keywords/concepts for: ${topic} Include:- Prioritize keywords a developer would use when researching this topic, consider topic which might comes before and after learning this topic, technical concepts and terminology, Related technologies and tools, names/synonyms. Format: Return only comma-separated keywords, no explanations. Example for Kubernetes: devops, container orchestration, docker, k8s, ConfigMaps and Secrets, Cluster Architecture, helm Charts, docker swarm, AWS ECS, K3s, Nomad`,
+        },
+      ],
+      model: "openai/gpt-oss-20b:groq",
+    });
   }
   sendResponse({ reply: "got your message" });
 });
+
+async function getRelatedTopic(data: any) {
+  const response = await axios.post(
+    "https://router.huggingface.co/v1/chat/completions",
+    data,
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.HF_TOKEN}`,
+      },
+    }
+  );
+  console.log("data is ");
+  const responseData = response.data.choices[0].message.content;
+  console.log(responseData);
+  const arr = responseData.split(",");
+  console.log(arr);
+  chrome.storage.local.set({ relatedTopic: arr });
+}
 
 async function getHistoricVideo(tabId: number) {
   const syncResult = await chrome.storage.sync.get(["topic"]);
@@ -94,8 +98,8 @@ async function getHistoricVideo(tabId: number) {
   const currentTopic = syncResult.topic;
   const historicData = await chrome.history.search({
     text: `youtube.com/watch`,
-    startTime: Date.now() - 7 * 24 * 60 * 60 * 1000,
-    maxResults: 1000,
+    startTime: Date.now() - 20 * 24 * 60 * 60 * 1000,
+    maxResults: 2000,
   });
 
   const filterVideo = historicData.filter((item) => {
