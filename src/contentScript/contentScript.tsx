@@ -1,5 +1,3 @@
-console.log("welcome to content script");
-
 const SELECTORS = {
   shorts: {
     sidebarLink: 'a[title="Shorts"]',
@@ -63,7 +61,6 @@ class YoutubeDetox {
   }
 
   private async init() {
-    console.log("initializing the Youtube detox");
     this.addLoader();
     await this.loadInitialState();
     await this.getHistoricVideos();
@@ -76,14 +73,11 @@ class YoutubeDetox {
   }
 
   private async loadInitialState() {
-    console.log("initial load starting");
     const syncResult = await chrome.storage.sync.get(["topic"]);
-    console.log(`sync result are `);
-    console.log(syncResult);
+
     if (syncResult && syncResult.topic) {
       this.currentTopic = syncResult.topic;
     } else {
-      console.log("No topic found!");
     }
 
     const localResult = await chrome.storage.local.get([
@@ -105,7 +99,6 @@ class YoutubeDetox {
     }
   }
   private async getHistoricVideos() {
-    console.log("get Historic videos");
     const localResult = await chrome.storage.local.get([
       "WatchedVideos",
       "Videostitle",
@@ -116,10 +109,7 @@ class YoutubeDetox {
     ) {
       this.watchedVideos = localResult.WatchedVideos;
     } else {
-      chrome.runtime.sendMessage({ type: "HISTORIC_VIDEOS" }, (response) => {
-        console.log("historic message response is");
-        console.log(response);
-      });
+      chrome.runtime.sendMessage({ type: "HISTORIC_VIDEOS" }, (response) => {});
     }
   }
 
@@ -148,13 +138,8 @@ class YoutubeDetox {
   }
 
   private setUpListner() {
-    console.log("start listning for messages");
     chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-      console.log("new message arrived");
-      console.log(msg);
       if (msg.type === "VIDEOS" && msg.videos && Array.isArray(msg.videos)) {
-        console.log("fetched videos are");
-        console.log(msg.videos);
         this.cachedVideos = msg.videos;
         this.cacheVideos(msg.videos);
       } else if (
@@ -178,15 +163,12 @@ class YoutubeDetox {
   }
 
   async cacheVideos(videos: any[]) {
-    console.log("Caching videos for topic:", this.currentTopic);
     try {
       await chrome.storage.local.set({
         Videostitle: this.currentTopic,
         videos: videos,
       });
-    } catch (e) {
-      console.error("Error caching videos:", e);
-    }
+    } catch (e) {}
   }
   async cacheWatchedVideos(videos: any[]) {
     try {
@@ -194,9 +176,7 @@ class YoutubeDetox {
         Videostitle: this.currentTopic,
         WatchedVideos: videos,
       });
-    } catch (error) {
-      console.log("not able to cache the watched videos");
-    }
+    } catch (error) {}
   }
 
   private filterPageContent() {
@@ -235,17 +215,10 @@ class YoutubeDetox {
   }
 
   private mergeVideos(fetchedVideos: any[], watchedVideos: any[]) {
-    console.log("in merge videos");
-    console.log("cached videos are");
-    console.log(this.cachedVideos);
-    console.log("watched videos are");
-    console.log(this.watchedVideos);
     const map = new Map<string, any>();
     const pushToMap = (item: any) => {
       const id = this.getVideoId(item);
       if (!id) {
-        console.log("no id found for video item");
-        console.log(item);
         return;
       }
       if (!map.has(id)) map.set(id, item);
@@ -253,8 +226,7 @@ class YoutubeDetox {
 
     watchedVideos.forEach((item) => pushToMap(item));
     fetchedVideos.forEach((item) => pushToMap(item));
-    console.log(`map is`);
-    console.log(map);
+
     return Array.from(map.values());
   }
 
@@ -297,7 +269,6 @@ class YoutubeDetox {
       for (let i = 0; i < this.relatedTopic.length; i++) {
         if (title.toLowerCase().includes(this.relatedTopic[i].toLowerCase())) {
           found = true;
-          console.log(`title is ${title} and topic is ${this.relatedTopic[i]}`);
           break;
         }
       }
@@ -315,7 +286,6 @@ class YoutubeDetox {
   private requestVideos() {
     if (!this.hadFetched && this.currentTopic) {
       this.hadFetched = true;
-      console.log("Few related videos found. Requesting custom shelf.");
 
       if (this.cachedVideos) {
         this.stopObserver();
@@ -324,14 +294,12 @@ class YoutubeDetox {
         );
         this.setUpObserver();
       } else {
-        console.log("No cached videos. Fetching from service worker.");
         this.fetchVideos();
       }
     }
   }
 
   private fetchVideos() {
-    console.log("sending message for fetching the videos");
     chrome.runtime.sendMessage(
       {
         type: "FETCH_VIDEOS",
@@ -353,7 +321,6 @@ class YoutubeDetox {
   }
 
   private addLoader() {
-    console.log("adding loader");
     if (document.getElementById(LOADER_ID)) return;
     const loader = document.createElement("div");
     loader.id = LOADER_ID;
@@ -382,7 +349,6 @@ class YoutubeDetox {
     document.body.appendChild(loader);
   }
   private hideLoader() {
-    console.log("hidding loader");
     const loader = document.getElementById(LOADER_ID) as HTMLElement;
     if (loader) {
       loader.style.opacity = "0";
@@ -395,8 +361,6 @@ class YoutubeDetox {
     // this.isInjecting = true;
 
     if (!videos) return;
-    console.log("vidoes are");
-    console.log(videos);
 
     const grid = document.querySelector(`ytd-rich-grid-renderer #contents`);
     if (!grid) {
@@ -603,7 +567,14 @@ class YoutubeDetox {
   }
 }
 
-new YoutubeDetox();
+async function init() {
+  const result = await chrome.storage.sync.get(["extensionStatus"]);
+  console.log(result.extensionStatus);
+  if (result.extensionStatus === true) {
+    new YoutubeDetox();
+  }
+}
+init();
 
 function formatTimeAgo(dateString: string): string {
   if (!dateString) return "";
