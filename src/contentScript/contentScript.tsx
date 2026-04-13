@@ -54,7 +54,7 @@ class YoutubeDetox {
       ) {
         const mergedVideos = this.mergeVideos(
           this.cachedVideos || [],
-          this.watchedVideos || []
+          this.watchedVideos || [],
         );
         this.injectShelf(mergedVideos);
       }
@@ -167,7 +167,7 @@ class YoutubeDetox {
       }
       const mergedvideos = this.mergeVideos(
         this.cachedVideos || [],
-        this.watchedVideos || []
+        this.watchedVideos || [],
       );
       this.stopObserver();
       this.injectShelf(mergedvideos);
@@ -276,7 +276,7 @@ class YoutubeDetox {
   private filterVideoElement() {
     let relatedCount = 0;
     const elements = document.querySelectorAll<HTMLElement>(
-      SELECTORS.videos.video
+      SELECTORS.videos.video,
     );
 
     elements.forEach((container) => {
@@ -320,7 +320,7 @@ class YoutubeDetox {
       if (this.cachedVideos) {
         this.stopObserver();
         this.injectShelf(
-          this.mergeVideos(this.cachedVideos || [], this.watchedVideos || [])
+          this.mergeVideos(this.cachedVideos || [], this.watchedVideos || []),
         );
         this.setUpObserver();
       } else {
@@ -341,14 +341,14 @@ class YoutubeDetox {
         if (chrome.runtime.lastError) {
           console.error(
             "Error sending FETCH_VIDEOS message:",
-            chrome.runtime.lastError.message
+            chrome.runtime.lastError.message,
           );
 
           this.hadFetched = false;
         } else {
           console.log("FETCH_VIDEOS message sent, response:", response);
         }
-      }
+      },
     );
   }
 
@@ -417,31 +417,36 @@ class YoutubeDetox {
 
       shelf.innerHTML = `
       <style>
-        /* GRID: force 3 columns like YouTube desktop */
+        /* GRID: Match YouTube's auto-fill responsive grid */
         #my-extension-shelf .my-shelf-grid-row {
           display: grid;
-          grid-template-columns: repeat(3, 1fr); /* 3 columns */
-          gap: 24px 20px; /* vertical gap, horizontal gap */
+          grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+          gap: 40px 16px; 
           align-items: start;
         }
 
-        /* Card */
         #my-extension-shelf .ext-card {
           width: 100%;
           color: inherit;
           text-decoration: none;
-          font-family: inherit;
+          font-family: "Roboto", "Arial", sans-serif;
+          cursor: pointer;
         }
 
-        /* Thumbnail container ensures exact 16:9 box */
+        /* Thumbnail container: Match YouTube's 12px rounded corners */
         #my-extension-shelf .ext-thumb {
           width: 100%;
           aspect-ratio: 16 / 9;
-          border-radius: 8px;
+          border-radius: 12px;
           overflow: hidden;
-          background-color: #222;
+          background-color: transparent;
           position: relative;
           display: block;
+          transition: border-radius 0.2s ease;
+        }
+
+        #my-extension-shelf .ext-thumb:hover {
+          border-radius: 0px; /* YouTube's hover effect removes border radius */
         }
 
         #my-extension-shelf .ext-thumb img {
@@ -451,10 +456,10 @@ class YoutubeDetox {
           display: block;
         }
 
-        /* Details row - channel avatar + meta */
+        /* Details row */
         #my-extension-shelf .ext-details {
           display: flex;
-          margin-top: 10px;
+          margin-top: 12px;
           gap: 12px;
         }
 
@@ -462,7 +467,7 @@ class YoutubeDetox {
           width: 36px;
           height: 36px;
           border-radius: 50%;
-          background-color: #444;
+          background-color: var(--yt-spec-10-percent-layer);
           flex: 0 0 36px;
           overflow: hidden;
           display: inline-block;
@@ -472,14 +477,16 @@ class YoutubeDetox {
           display: flex;
           flex-direction: column;
           min-width: 0;
+          padding-right: 24px; /* Space for native three-dot menu if you ever add it */
         }
 
+        /* Title: Match YouTube's 16px, 500 weight, 2.2rem line-height */
         #my-extension-shelf .ext-title {
           margin: 0;
           padding: 0;
-          font-size: 14px;
+          font-size: 1.6rem; 
           font-weight: 500;
-          line-height: 1.35;
+          line-height: 2.2rem;
           color: var(--yt-spec-text-primary);
           display: -webkit-box;
           -webkit-line-clamp: 2;
@@ -488,32 +495,39 @@ class YoutubeDetox {
           text-overflow: ellipsis;
         }
 
+        /* Channel & Meta info: Match YouTube's 14px, 400 weight, 2rem line-height */
         #my-extension-shelf .ext-subline {
-          margin-top: 6px;
-          font-size: 12px;
+          margin-top: 4px;
+          font-size: 1.4rem;
+          font-weight: 400;
           color: var(--yt-spec-text-secondary);
-          line-height: 1.3;
+          line-height: 2rem;
+          display: flex;
+          flex-direction: column;
         }
 
-        /* Make shelf title visually similar to ytd shelves */
-        #my-extension-shelf .ext-shelf-header {
-          display:flex;
-          align-items:center;
-          gap:12px;
-          padding: 0 0 16px 0;
+        #my-extension-shelf .ext-subline div:hover {
+          color: var(--yt-spec-text-primary);
         }
+
+        /* Header styling */
+        #my-extension-shelf .ext-shelf-header {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 0 0 24px 0;
+        }
+        
         #my-extension-shelf .ext-shelf-title {
-          font-size: 1.6rem;
-          line-height: 2.2rem;
+          font-size: 2rem;
+          line-height: 2.8rem;
           font-weight: 700;
+          font-family: "YouTube Sans", "Roboto", sans-serif;
           color: var(--yt-spec-text-primary);
           margin: 0;
         }
 
-        /* Responsive fallback: if viewport is narrow, switch to 2 / 1 columns */
-        @media (max-width: 1200px) {
-          #my-extension-shelf .my-shelf-grid-row { grid-template-columns: repeat(2, 1fr); }
-        }
+        /* Responsive adjustments */
         @media (max-width: 800px) {
           #my-extension-shelf .my-shelf-grid-row { grid-template-columns: repeat(1, 1fr); }
         }
@@ -527,7 +541,6 @@ class YoutubeDetox {
 
       <div class="my-shelf-grid-row"></div>
     `;
-
       const row = shelf.querySelector(".my-shelf-grid-row");
       if (!row) return;
 
@@ -565,10 +578,10 @@ class YoutubeDetox {
 
             <div class="ext-subline">
               <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(
-                channel
+                channel,
               )}</div>
               <div style="margin-top:2px;">${escapeHtml(
-                formatTimeAgo(publishTime)
+                formatTimeAgo(publishTime),
               )}</div>
             </div>
           </div>
