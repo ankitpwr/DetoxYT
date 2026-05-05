@@ -13,7 +13,7 @@
     "default_title": "DetoxYT",
     "default_icon": "icon.png"
   },
-  "options_page": "options.html",
+
   "background": {
     "service_worker": "background.js",
     "type": "module"

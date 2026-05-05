@@ -13,7 +13,6 @@ export default {
   //tells webpack which file(s) to start bundling from.
   entry: {
     popup: path.resolve("src/popup/popup.tsx"),
-    options: path.resolve("src/options/options.tsx"),
     background: path.resolve("src/background/background.ts"),
     contentScript: path.resolve("src/contentScript/contentScript.tsx"),
   },
@@ -57,7 +56,7 @@ export default {
         {
           from: path.resolve(
             __dirname,
-            "node_modules/@xenova/transformers/dist"
+            "node_modules/@xenova/transformers/dist",
           ),
           to: "lib/transformers",
         },
@@ -81,20 +80,10 @@ export default {
     extensions: [".tsx", ".ts", ".js"],
   },
   output: {
-    //This tells webpack where t o put the bundled files and what to name them.
+    //This tells webpack where to put the bundled files and what to name them.
     filename: "[name].js",
     path: path.resolve("dist"),
   },
-
-  // optimization: {
-  //   //allow chunks to share modules eg. react being imported in both popup.tsx and option.tsx
-
-  //   splitChunks: {
-  //     chunks: (chunk) => {
-  //       return chunk.name !== "contentScript" && chunk.name !== "background";
-  //     },
-  //   },
-  // },
 };
 
 function getHtmlPlugins(chunks) {
@@ -105,6 +94,6 @@ function getHtmlPlugins(chunks) {
         title: "React Extension",
         filename: `${chunk}.html`,
         chunks: [chunk],
-      })
+      }),
   );
 }

@@ -74,14 +74,13 @@ const App: React.FC = () => {
           Detox YT
         </h1>
 
-        {/* Toggle Switch */}
-        <div className="relative z-10 flex items-center gap-2">
+        <div className="relative z-10 flex items-center gap-2 ">
           <span className="text-[11px] font-bold text-white/90 uppercase tracking-wider">
             {extensionStatus ? "ON" : "OFF"}
           </span>
           <button
             onClick={updateExtensionStatus}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 focus:outline-none shadow-inner ${
+            className={`cursor-pointer relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 focus:outline-none shadow-inner ${
               extensionStatus ? "bg-white/30" : "bg-black/40"
             }`}
           >
@@ -94,8 +93,6 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Content Body */}
-      {/* If extension is off, dim the controls and disable pointer events */}
       <div
         className={`flex flex-col p-6 gap-5 bg-[#0f0f0f] transition-opacity duration-300 ${
           extensionStatus ? "opacity-100" : "opacity-40 pointer-events-none"
@@ -129,10 +126,9 @@ const App: React.FC = () => {
         )}
       </div>
 
-      {/* Floating alert when disabled */}
       {!extensionStatus && (
         <div className="absolute bottom-6 left-0 w-full flex justify-center z-20 pointer-events-none">
-          <span className="bg-[#272727] text-xs px-4 py-2 rounded-full border border-[#3f3f3f] text-[#dddddd] shadow-lg">
+          <span className="bg-[#272727] text-xs px-6 py-2 rounded-full border border-[#3f3f3f] text-[#dddddd] shadow-lg">
             Detox mode is paused
           </span>
         </div>
@@ -142,7 +138,6 @@ const App: React.FC = () => {
 };
 
 const root = document.createElement("div");
-// Ensure background bleeds seamlessly into the rounded corners
 document.body.style.margin = "0";
 document.body.style.backgroundColor = "#0f0f0f";
 
